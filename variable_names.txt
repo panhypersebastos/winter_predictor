@@ -1,0 +1,204 @@
+OrderedDict([('longitude', <class 'netCDF4._netCDF4.Variable'>
+float32 longitude(longitude)
+    units: degrees_east
+    long_name: longitude
+unlimited dimensions: 
+current shape = (480,)
+filling off
+), ('latitude', <class 'netCDF4._netCDF4.Variable'>
+float32 latitude(latitude)
+    units: degrees_north
+    long_name: latitude
+unlimited dimensions: 
+current shape = (241,)
+filling off
+), ('time', <class 'netCDF4._netCDF4.Variable'>
+int32 time(time)
+    units: hours since 1900-01-01 00:00:0.0
+    long_name: time
+    calendar: gregorian
+unlimited dimensions: time
+current shape = (464,)
+filling off
+), ('ci', <class 'netCDF4._netCDF4.Variable'>
+int16 ci(time, latitude, longitude)
+    scale_factor: 1.52594875864e-05
+    add_offset: 0.499992370256
+    _FillValue: -32767
+    missing_value: -32767
+    units: (0 - 1)
+    long_name: Sea-ice cover
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('sst', <class 'netCDF4._netCDF4.Variable'>
+int16 sst(time, latitude, longitude)
+    scale_factor: 0.000600991342148
+    add_offset: 288.463566692
+    _FillValue: -32767
+    missing_value: -32767
+    units: K
+    long_name: Sea surface temperature
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('istl1', <class 'netCDF4._netCDF4.Variable'>
+int16 istl1(time, latitude, longitude)
+    scale_factor: 0.00063028533923
+    add_offset: 252.508145856
+    _FillValue: -32767
+    missing_value: -32767
+    units: K
+    long_name: Ice temperature layer 1
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('sp', <class 'netCDF4._netCDF4.Variable'>
+int16 sp(time, latitude, longitude)
+    scale_factor: 0.807586206568
+    add_offset: 77764.5962069
+    _FillValue: -32767
+    missing_value: -32767
+    units: Pa
+    long_name: Surface pressure
+    standard_name: surface_air_pressure
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('stl1', <class 'netCDF4._netCDF4.Variable'>
+int16 stl1(time, latitude, longitude)
+    scale_factor: 0.00218753309141
+    add_offset: 247.692334273
+    _FillValue: -32767
+    missing_value: -32767
+    units: K
+    long_name: Soil temperature level 1
+    standard_name: surface_temperature
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('msl', <class 'netCDF4._netCDF4.Variable'>
+int16 msl(time, latitude, longitude)
+    scale_factor: 0.141259937741
+    add_offset: 100442.27312
+    _FillValue: -32767
+    missing_value: -32767
+    units: Pa
+    long_name: Mean sea level pressure
+    standard_name: air_pressure_at_sea_level
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('u10', <class 'netCDF4._netCDF4.Variable'>
+int16 u10(time, latitude, longitude)
+    scale_factor: 0.000474232886447
+    add_offset: -1.61623824559
+    _FillValue: -32767
+    missing_value: -32767
+    units: m s**-1
+    long_name: 10 metre U wind component
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('v10', <class 'netCDF4._netCDF4.Variable'>
+int16 v10(time, latitude, longitude)
+    scale_factor: 0.000467219953817
+    add_offset: 1.11946920603
+    _FillValue: -32767
+    missing_value: -32767
+    units: m s**-1
+    long_name: 10 metre V wind component
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('t2m', <class 'netCDF4._netCDF4.Variable'>
+int16 t2m(time, latitude, longitude)
+    scale_factor: 0.0017510755629
+    add_offset: 256.976358349
+    _FillValue: -32767
+    missing_value: -32767
+    units: K
+    long_name: 2 metre temperature
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('d2m', <class 'netCDF4._netCDF4.Variable'>
+int16 d2m(time, latitude, longitude)
+    scale_factor: 0.0016219229165
+    add_offset: 249.9173943
+    _FillValue: -32767
+    missing_value: -32767
+    units: K
+    long_name: 2 metre dewpoint temperature
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('al', <class 'netCDF4._netCDF4.Variable'>
+int16 al(time, latitude, longitude)
+    scale_factor: 6.43352160273e-06
+    add_offset: 0.280800702078
+    _FillValue: -32767
+    missing_value: -32767
+    units: (0 - 1)
+    long_name: Albedo
+    standard_name: surface_albedo
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('lcc', <class 'netCDF4._netCDF4.Variable'>
+int16 lcc(time, latitude, longitude)
+    scale_factor: 1.52590219038e-05
+    add_offset: 0.4999771117
+    _FillValue: -32767
+    missing_value: -32767
+    units: (0 - 1)
+    long_name: Low cloud cover
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('mcc', <class 'netCDF4._netCDF4.Variable'>
+int16 mcc(time, latitude, longitude)
+    scale_factor: 1.40249630017e-05
+    add_offset: 0.459541937714
+    _FillValue: -32767
+    missing_value: -32767
+    units: (0 - 1)
+    long_name: Medium cloud cover
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('hcc', <class 'netCDF4._netCDF4.Variable'>
+int16 hcc(time, latitude, longitude)
+    scale_factor: 1.51395743157e-05
+    add_offset: 0.49606329203
+    _FillValue: -32767
+    missing_value: -32767
+    units: (0 - 1)
+    long_name: High cloud cover
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('si10', <class 'netCDF4._netCDF4.Variable'>
+int16 si10(time, latitude, longitude)
+    scale_factor: 0.000254008777738
+    add_offset: 9.07756836533
+    _FillValue: -32767
+    missing_value: -32767
+    units: m s**-1
+    long_name: 10 metre wind speed
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+), ('skt', <class 'netCDF4._netCDF4.Variable'>
+int16 skt(time, latitude, longitude)
+    scale_factor: 0.00207882507556
+    add_offset: 253.239706132
+    _FillValue: -32767
+    missing_value: -32767
+    units: K
+    long_name: Skin temperature
+unlimited dimensions: time
+current shape = (464, 241, 480)
+filling off
+)])
+
