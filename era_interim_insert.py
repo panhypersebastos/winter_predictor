@@ -62,7 +62,7 @@ def doIndexing():
     mongo_host_local = 'mongodb://localhost:27017/'
     con = pymongo.MongoClient(mongo_host_local)
     db = con.ECMWF
-    db.ERAINT_daily.create_indexes([index1, index2, index3])
+    db.ERAINT_monthly.create_indexes([index1, index2, index3])
     logging.info('--- Indexes added ---')
 
 
