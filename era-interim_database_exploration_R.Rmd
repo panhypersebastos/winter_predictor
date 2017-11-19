@@ -1,0 +1,127 @@
+---
+title: "ERA-interim"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(mongolite)
+library(raster)
+library(tmap)
+```
+
+Connect to mongodb
+
+```{r}
+con_grid <- mongo(collection = 'ERAINT_grid', db = 'ECMWF')
+con_data <- mongo(collection = 'ERAINT_monthly', db = 'ECMWF')
+```
+
+Examine indexes
+
+```{r}
+con_grid$index()
+con_data$index()
+```
+
+- The domain north of 20°N is chosen for EOF decomposition for Z70 hPa and SIC to focus on the extra-tropical variability 
+- The area north of 20°S is chosen for SST to also include key regions of tropical SST variability
+
+Query id_grid encompassed in the domain. Be careful: defining a simple box won't work on the sphere, see [Antimeridian Cutting](https://tools.ietf.org/html/rfc7946#section-3.1.9). In addition, a vertice will follow the shorterst path on the sphere. Hence, we need to define a proper circular path for both latmin and latmax.
+
+```{r}
+this_box <- list(lonmin = -180, lonmax = 180, latmin = 20, latmax = 90)
+
+genCircle <- function(start_lon, stop_lon , lat, decreasing = F){
+  seq(from = start_lon, to = stop_lon) %>% sort(., decreasing = decreasing) %>% 
+  map_chr(.x = ., .f = function(x){
+    paste0('[', x , ',', lat,']')
+    }) %>% paste(., collapse = ',')
+}
+  
+circle_north_pos <- genCircle(start_lon = this_box$lonmin, stop_lon = this_box$lonmax, 
+                              lat = this_box$latmax, decreasing = F)
+circle_south_neg <- genCircle(start_lon = this_box$lonmin, stop_lon = this_box$lonmax, 
+                            lat = this_box$latmin,  decreasing = T)
+
+slp_poly <- sprintf("[[%s,%s], %s, %s]",
+                    this_box$lonmin, this_box$latmin,
+                    circle_north_pos,
+                    circle_south_neg)
+```
+
+
+```{r}
+geo_qry <-  sprintf('{"loc": 
+           {"$geoWithin": {
+               "$geometry": {
+                   "type": "Polygon","coordinates": [%s]
+             }
+           }}}', slp_poly)
+con_grid$count(query = geo_qry)
+```
+
+Create grid_df data_frame:
+
+```{r}
+res <-  con_grid$find(query = geo_qry, 
+                      fields = '{"_id":0, "id_grid": 1, "loc": 1}')
+grid_df <-  map_df(1:nrow(res),function(i){
+  data_frame(id_grid = res$id_grid[i], 
+             lng = res$loc$coordinates[[i]][1], 
+             lat = res$loc$coordinates[[i]][2])})
+grid_df %>% head()
+```
+
+Query SLP in the data collection for a given day for the grid_ids
+
+```{r}
+# Query SLP in the data collection for a given day for the grid_ids
+this_date <- "1988-12-01"
+this_gridids <- paste(grid_df$id_grid, collapse = ',')
+qry <- sprintf('{
+    "date": {"$date": "%sT00:00:00Z" },
+    "id_grid": {"$in": [%s]}}', this_date, this_gridids)
+res <- con_data$find(query = qry,
+    fields = '{"_id":0, "id_grid": 1, "msl": 1}') %>% as_data_frame()
+slp_dat <- res %>% left_join(grid_df, by = 'id_grid')
+slp_dat %>% head()
+```
+
+Rasterize and visualize:
+
+```{r}
+grid_dat <- slp_dat
+# Create a raster
+pts <- dplyr::select(grid_dat, lng, lat) %>% SpatialPoints()
+projection(pts) <- "+proj=longlat"
+pix <- SpatialPixelsDataFrame(pts, #tolerance = 0.5, 
+                              data = grid_dat)
+ras <- raster(pix['msl'])
+ras
+#plot(ras)      
+```
+
+Plot the SLP field :
+
+```{r}
+polar_proj <- tmaptools::get_proj4('+proj=stere +lon 0=90w', as.CRS = T)
+data("World")
+tm_shape(ras) + 
+  tm_raster(palette = "YlGnBu")+
+  tm_shape(World, is.master = TRUE)+
+  tm_borders()
+```
+
+```{r}
+polar_proj <- tmaptools::get_proj4('+proj=stere +lon 0=90w', as.CRS = T)
+data("World")
+tm_shape(ras, projection = polar_proj, is.master = T) +
+  tm_raster(palette = "YlGnBu") +
+  tm_shape(World, is.master = F) + 
+  tm_borders()
+```
+
+

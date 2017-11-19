@@ -1,0 +1,100 @@
+---
+title: "HDD Call"
+output: html_notebook
+---
+
+Load Vaduz data
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(foreach)
+
+dat00 <- read_csv('/home/dmasson/CloudStation/code/winter_predictor/CHE_Average temperature_msTempAvg_all_vaduz.csv')
+dat01 <- dat00 %>% rename(T = Vaduz) %>% arrange(date) %>% mutate(id = 1)
+head(dat01)
+```
+
+
+
+Create the var column
+
+```{r}
+temp_ref <- 25
+dat <- dat01 %>% mutate(var = map_dbl(T, function(x) max(c(temp_ref-x, 0))))
+dat
+```
+
+Get cumulative values:
+
+
+```{r}
+cumrange = c('2016-12-03' %>% ymd(), '2017-02-15' %>% ymd())
+
+noLeap <- function(cumrange){
+  cumrange %>% map_chr(.f = function(d){
+    doy <- lubridate::yday(d) %>% as.integer()
+    if (doy == 366) { 
+      d <-  paste(year(d), month(d), '30', sep = '-')
+    } else {d <- as.character(d)}
+    return(d)
+  }
+  ) %>% ymd()
+}
+
+# Get time series of cumulated values
+getCum <- function(dat, cumrange){
+  cumrange <- noLeap(cumrange)
+  alltimes <- dat$date
+  start_doy <- yday(cumrange[1])
+  ndays <- cumrange[2]- cumrange[1]
+  start_dates <- alltimes %>% year() %>% unique() %>% paste(.,'-01-01') %>% ymd() + days(start_doy-1) # minus one day because already counted with 1st January
+  end_dates <- start_dates + ndays
+  valid_periods <- data_frame(start = start_dates, end = end_dates) %>% arrange(start) %>% 
+    mutate(period = interval(start, end), periodID = row_number()) 
+  
+    dat_cum <- foreach(i = 1:nrow(valid_periods), .combine = rbind) %do% {
+      this_period <- valid_periods$period[i]
+      vp <- valid_periods %>% slice(i)
+      dat %>% dplyr::filter(date %within% this_period) %>% merge(vp) %>% as_data_frame()
+    } %>% 
+      # rename(date = time) %>% 
+      arrange(date) %>% 
+      dplyr::group_by(id, periodID) %>% # replace NA with average value over this period
+      mutate(this.year.ave = mean(var, na.rm = T),
+             filled.val = map2(.x = var, .y = this.year.ave, .f = function(x, y) {ifelse(is.na(x), y, x)} ),
+             i = row_number(),
+             cum = cumsum(filled.val)
+      ) %>% ungroup()
+  return(dat_cum) 
+}
+dat_cum00 = getCum(dat, cumrange)
+```
+
+Calculate the index:
+
+```{r}
+dat_ind <- dat_cum00 %>% select(date, T, var, id, periodID, cum) %>% group_by(id, periodID) %>% summarise(end = max(date), index = max(cum)) 
+
+```
+
+Calculate payouts:
+
+
+```{r}
+strike <- 1880
+dat_po <- dat_ind %>% mutate(payout = map_dbl(index, function(x){
+  z <- max(x-strike, 0)*2000
+  return(min(z, 160000))}))
+
+dat_po
+```
+
+Duration of the period:
+
+```{r}
+ndays <- cumrange[2]- cumrange[1]
+mTemp <- temp_ref-strike/as.numeric(ndays)
+sprintf('On average, the temperature should not go above %s °C during %s days (i.e. between %s and %s)', round(mTemp, 1), ndays, cumrange[1], cumrange[2]) %>% writeLines()
+```
+
