@@ -19,6 +19,9 @@ import pandas as pd
 
 from era_interim_download_functions import getMultivarMon
 
+# --- choose spatial resolution in °
+resolution = 2.5 # 0.25
+# ---
 downloadDir = '/home/dmasson/data/era-interim'
 
 logfilename = '/home/dmasson/data/logfiles/era-interim_download.plog'
@@ -32,7 +35,7 @@ logging.info('Job started')
 mongo_host_local = 'mongodb://localhost:27017/'
 mg = pymongo.MongoClient(mongo_host_local)
 db = mg.ECMWF
-con_data = db.ERAINT_monthly
+con_data = db.ERAINT_lores_monthly
 datesInMongo = con_data.distinct('date')
 
 try:
@@ -69,8 +72,11 @@ to_day = datetime(now.year, now.month, 1).date() - \
 if from_day < to_day:
     t_interval = "%s to %s" % (from_day, to_day)
     logging.info("Downloading data for the period %s..." % (t_interval))
-    getMultivarMon(from_day=from_day, to_day=to_day,
-                downloadDir=downloadDir, server=ECMWFDataServer())
+    getMultivarMon(from_day=from_day,
+                   to_day=to_day,
+                   downloadDir=downloadDir,
+                   server=ECMWFDataServer(),
+                   resolution=resolution)
 else:
     logging.info("No need to download new data. Latest data available on the server is %s and data to download would be %s." % (
         to_day, from_day))
