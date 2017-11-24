@@ -24,6 +24,18 @@ import multiprocessing
 from functools import partial
 
 num_cores = 3  # multiprocessing.cpu_count()
+ERA_vers = 'lores' # or 'hires'
+
+if (ERA_vers == 'hires'):
+    col_dat = 'ERAINT_monthly'
+    col_grid = 'ERAINT_grid'
+    resolution = 0.25
+elif (ERA_vers == 'lores'):
+    col_dat = 'ERAINT_lores_monthly'
+    col_grid = 'ERAINT_lores_grid'
+    resolution = 2.5
+
+downloadDir = '/home/dmasson/data/era-interim/%s/' % (ERA_vers)
 
 logfilename = '/home/dmasson/data/logfiles/era-interim_insert.log'
 if os.path.exists(logfilename):
@@ -34,7 +46,7 @@ logging.basicConfig(filename=logfilename,
 startTime = datetime.now()
 logging.info("%s %s:%s Job started" %
              (startTime.date(), startTime.hour, startTime.minute))
-downloadDir = '/home/dmasson/data/era-interim/'
+
 files00 = listdir(downloadDir)
 files = fnmatch.filter(files00, '*multivarm1*.nc')
 files.sort()
@@ -48,7 +60,7 @@ mongo_host_local = 'mongodb://localhost:27017/'
 mg = pymongo.MongoClient(mongo_host_local)
 
 db = mg.ECMWF
-con_data = db.ERAINT_monthly
+con_data = db[col_dat]
 datesInMongo = con_data.distinct('date')
 
 
@@ -62,7 +74,7 @@ def doIndexing():
     mongo_host_local = 'mongodb://localhost:27017/'
     con = pymongo.MongoClient(mongo_host_local)
     db = con.ECMWF
-    db.ERAINT_monthly.create_indexes([index1, index2, index3])
+    db[col_dat].create_indexes([index1, index2, index3])
     logging.info('--- Indexes added ---')
 
 
@@ -107,7 +119,7 @@ def insertToMongo(vars):
     this_id = 0
     for (i, j), val in np.ndenumerate(lon):  # lon or testlon): !!!!!!!!!!
         this_id += 1
-        db.ERAINT_monthly.insert_one({
+        db[col_dat].insert_one({
             "id_grid": this_id,
             "date": this_dayhh,
             "year": this_year,
@@ -204,8 +216,8 @@ for this_file in files:
 do_checks = False
 if do_checks is True:
     pprint(db.data.find_one())
-    db.ERAINT_data.count()
-    db.ERAINT_data.distinct(key='date')
+    db[col_dat].count()
+    db[col_dat].distinct(key='date')
 
 endTime = datetime.now()
 logging.info("%s %s:%s Job Done !!!" %

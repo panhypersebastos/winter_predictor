@@ -19,8 +19,18 @@ import pandas as pd
 
 from era_interim_download_functions import getMultivarMon
 
-# --- choose spatial resolution in °
-resolution = 2.5 # 0.25
+# --- choose spatial resolution product version
+ERA_vers = 'lores' # or 'hires'
+
+if (ERA_vers == 'hires'):
+    col_dat = 'ERAINT_monthly'
+    col_grid = 'ERAINT_grid'
+    resolution = 0.25
+elif (ERA_vers == 'lores'):
+    col_dat = 'ERAINT_lores_monthly'
+    col_grid = 'ERAINT_lores_grid'
+    resolution = 2.5
+
 # ---
 downloadDir = '/home/dmasson/data/era-interim'
 
@@ -35,7 +45,7 @@ logging.info('Job started')
 mongo_host_local = 'mongodb://localhost:27017/'
 mg = pymongo.MongoClient(mongo_host_local)
 db = mg.ECMWF
-con_data = db.ERAINT_lores_monthly
+con_data = db[col_dat]
 datesInMongo = con_data.distinct('date')
 
 try:

@@ -24,6 +24,17 @@ from joblib import Parallel, delayed
 import multiprocessing
 from functools import partial
 
+ERA_vers = 'lores' # or 'hires'
+
+if (ERA_vers == 'hires'):
+    col_dat = 'ERAINT_monthly'
+    col_grid = 'ERAINT_grid'
+    resolution = 0.25
+elif (ERA_vers == 'lores'):
+    col_dat = 'ERAINT_lores_monthly'
+    col_grid = 'ERAINT_lores_grid'
+    resolution = 2.5
+
 logfilename = '/home/dmasson/data/logfiles/era-interim_indexing.log'
 if os.path.exists(logfilename):
     os.remove(logfilename)
@@ -38,7 +49,7 @@ mongo_host_local = 'mongodb://localhost:27017/'
 mg = pymongo.MongoClient(mongo_host_local)
 
 db = mg.ECMWF
-con_data = db.ERAINT_monthly
+con_data = db[col_dat]
 
 def doIndexing():
     # Add indexes
@@ -49,7 +60,7 @@ def doIndexing():
     mongo_host_local = 'mongodb://localhost:27017/'
     con = pymongo.MongoClient(mongo_host_local)
     db = con.ECMWF
-    db.ERAINT_monthly.create_indexes([index1, index2, index3])
+    db[col_dat].create_indexes([index1, index2, index3])
     logging.info('--- Indexes added ---')
 
 doIndexing()

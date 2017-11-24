@@ -13,8 +13,23 @@ import pymongo
 from pprint import pprint
 from datetime import datetime, timedelta, date
 
+ERA_vers = 'lores' # or 'hires'
+
+downloadDir = '/home/dmasson/data/era-interim/%s/' % (ERA_vers)
+
+if (ERA_vers == 'hires'):
+    col_dat = 'ERAINT_monthly'
+    col_grid = 'ERAINT_grid'
+    resolution = 0.25
+elif (ERA_vers == 'lores'):
+    col_dat = 'ERAINT_lores_monthly'
+    col_grid = 'ERAINT_lores_grid'
+    resolution = 2.5
+
 # Open any era_int file
-nc_file = '/home/dmasson/data/era-interim/era-int_multivarm1_1979-01-01_to_2017-08-31.nc'
+nc_file = '%sera-int_multivarm1_%s_1979-01-01_to_2017-08-31.nc' % (downloadDir, ERA_vers)
+
+
 fh = Dataset(nc_file, mode='r')
 
 lons = fh.variables['longitude'][:]
@@ -37,7 +52,7 @@ db = con.ECMWF
 this_id = 0
 for (i, j), val in np.ndenumerate(this_field):
     this_id += 1
-    db.ERAINT_grid.insert_one({
+    db[col_grid].insert_one({
         "id_grid": this_id,
         "loc": {"type": "Point",
                 "coordinates": [float(lon[i, j]), float(lat[i, j])]}
@@ -45,7 +60,7 @@ for (i, j), val in np.ndenumerate(this_field):
 
 # Create geospatial indexes:
 # Warning: geospatial index require -180, +180 longitudes !!
-db.ERAINT_grid.create_index(
+db[col_grid].create_index(
     [("loc", pymongo.GEOSPHERE), ("id_grid", pymongo.ASCENDING)])
 
 endTime = datetime.now()
