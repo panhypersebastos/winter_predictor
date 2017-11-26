@@ -4,10 +4,10 @@ import itertools
 import pandas as pd
 
 def getMultivarMon(from_day, to_day, downloadDir, server, resolution):
-    # get MULTIPLE VAIABLES :
+    # get MULTIPLE VARIABLES :
     filename_multivar1 = 'era-int_multivarm1_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
     filename_multivar2 = 'era-int_multivarm2_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
-    print("PROCESSING %s..." % (filename_multivar1))
+    filename_z = 'era-int_Zvar_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
     
     yrs = list(range(from_day.year, to_day.year+1))
     mts = list(['01-01', '02-01', '03-01', '04-01', '05-01', '06-01', '07-01',
@@ -25,6 +25,7 @@ def getMultivarMon(from_day, to_day, downloadDir, server, resolution):
     dts = dts.query('date<=@to_day')
     datestring = "/".join(dts.datestr)
 
+    print("PROCESSING %s..." % (filename_multivar1))
     server.retrieve({
         "class": "ei",
         "dataset": "interim",
@@ -51,5 +52,20 @@ def getMultivarMon(from_day, to_day, downloadDir, server, resolution):
         "format": "netcdf",
         "type": "fc",
         "target":  "%s/%s" % (downloadDir, filename_multivar2),
+    })
+    print("PROCESSING %s..." % (filename_z))
+    server.retrieve({
+        "class": "ei",
+        "dataset": "interim",
+        "date": datestring,
+        "expver": "1",
+        "grid": "%s/%s" % (resolution, resolution),
+        "levelist": "70",
+        "levtype": "pl",
+        "param": "129.128",
+        "stream": "moda",
+        "type": "an",
+        "format": "netcdf",
+        "target":  "%s/%s" % (downloadDir, filename_z),
     })
     

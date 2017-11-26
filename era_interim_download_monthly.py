@@ -32,7 +32,7 @@ elif (ERA_vers == 'lores'):
     resolution = 2.5
 
 # ---
-downloadDir = '/home/dmasson/data/era-interim'
+downloadDir = '/home/dmasson/data/era-interim/%s' % (ERA_vers)
 
 logfilename = '/home/dmasson/data/logfiles/era-interim_download.plog'
 if os.path.exists(logfilename):

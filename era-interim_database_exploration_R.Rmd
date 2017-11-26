@@ -10,13 +10,23 @@ library(lubridate)
 library(mongolite)
 library(raster)
 library(tmap)
+library(grid)
 ```
+
+Choose which ERA-interim version. High resolution (0.25°) or Low resolution (2.5°)
+
+```{r}
+ERA_vers <- c('lores', 'hires')[1]
+col_grid <- sprintf('ERAINT_%s_grid', ERA_vers)
+col_dat <- sprintf('ERAINT_%s_monthly', ERA_vers)
+```
+
 
 Connect to mongodb
 
 ```{r}
-con_grid <- mongo(collection = 'ERAINT_grid', db = 'ECMWF')
-con_data <- mongo(collection = 'ERAINT_monthly', db = 'ECMWF')
+con_grid <- mongo(collection = col_grid, db = 'ECMWF', verbose = F)
+con_data <- mongo(collection = col_dat, db = 'ECMWF',verbose = F)
 ```
 
 Examine indexes
@@ -115,13 +125,111 @@ tm_shape(ras) +
   tm_borders()
 ```
 
+Using a nicer cartographic Polar projection:
+
 ```{r}
-polar_proj <- tmaptools::get_proj4('+proj=stere +lon 0=90w', as.CRS = T)
-data("World")
-tm_shape(ras, projection = polar_proj, is.master = T) +
-  tm_raster(palette = "YlGnBu") +
-  tm_shape(World, is.master = F) + 
-  tm_borders()
+plotPolar <- function(ras){
+  polar_proj <- tmaptools::get_proj4('+proj=laea +lon_0=0e +lat_0=90n', as.CRS = T)
+  data("World")
+  p <- tm_shape(ras, projection = polar_proj, is.master = T) +
+    tm_raster(palette = "YlGnBu") +
+    tm_layout(legend.text.size = 0.4,
+          legend.position = c("left","top")) +
+    tm_shape(World, is.master = F) + 
+    tm_borders()
+  return(p)
+}
+plotPolar(ras)
 ```
+
+
+# Empirical Orthogonal Function Analysis
+
+Let us extract data only for Autumn and Winter months and above LAT 20°N.
+
+```{r}
+pip <- sprintf('[ {"$project": {"id_grid": 1, "date": 1, "msl": 1, "month": {"$month": "$date"}}},
+                  {"$match": {"month": {"$in": [9, 10, 11, 12, 1, 2]},
+                              "id_grid": {"$in": [%s]} }},
+                  {"$project": {"_id": 0, "id_grid": 1, "date": 1, "msl": 1}} ]', this_gridids)
+res <- con_data$aggregate(pipeline = pip)
+```
+
+Transform in Matrix-like format suited for PCA
+
+```{r}
+dat <- res %>% spread(key = id_grid, value = msl) %>% as_data_frame()
+head(dat)
+```
+
+Actually, the number of grid cell is too large in comparison with the number of monthly observations. This leads to a singular covariance matrix, impossible to invert.
+
+```{r}
+dim(dat)
+38*6
+```
+
+```{r}
+pca <- prcomp(x = dat %>% dplyr::select(-date), center = T)
+str(pca)
+```
+
+Plot the first mode of variability :
+
+Rasterize data: 
+(i) format to data_frame:
+```{r}
+eof <- data_frame(id_grid= colnames(dat %>% dplyr::select(-date)) %>% as.integer(), 
+                  eof1 = pca$rotation[,1],
+                  eof2 = pca$rotation[,2],
+                  eof3 = pca$rotation[,3],
+                  eof4 = pca$rotation[,4])
+                  
+eof_df <- grid_df %>% left_join(eof)
+head(eof_df)
+```
+
+(ii) rasterize data from data_frame:
+
+```{r}
+grid_dat <- eof_df
+# Create a raster
+pts <- dplyr::select(grid_dat, lng, lat) %>% SpatialPoints()
+projection(pts) <- "+proj=longlat"
+pix <- SpatialPixelsDataFrame(pts, #tolerance = 0.5, 
+                              data = grid_dat)
+eof1 <- raster(pix['eof1'])
+eof2 <- raster(pix['eof2'])
+eof3 <- raster(pix['eof3'])
+eof4 <- raster(pix['eof4'])
+
+
+p1 <- plotPolar(ras = eof1)
+p2 <- plotPolar(ras = eof2)
+p3 <- plotPolar(ras = eof3)
+p4 <- plotPolar(ras = eof4)
+
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(2, 2)))
+print(p1, vp=viewport(layout.pos.row =1, layout.pos.col = 1))
+print(p2, vp=viewport(layout.pos.row =1, layout.pos.col = 2))
+print(p3, vp=viewport(layout.pos.row =2, layout.pos.col = 1))
+print(p4, vp=viewport(layout.pos.row =2, layout.pos.col = 2))
+
+```
+
+Plot of explained variances :
+
+```{r}
+cutoff <- 10
+exVar <- data_frame(eof = 1:cutoff, 
+                    exVar = pca$sdev[1:cutoff]^2/sum(pca$sdev^2),
+                    totalExpl = map_dbl(.x = 1:cutoff, .f = function(x) sum(exVar[1:x])))
+exVar
+```
+
+These plots do not corresponds to Wang et al. (nat, 2017) because we have used Mean Sea-Level Pressure. Wang et al. (2017) are using geopotential height at 70hPa. We need to load this variable into mongodb and repeat the analysis.
+
+
 
 
