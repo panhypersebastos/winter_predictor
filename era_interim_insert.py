@@ -48,8 +48,19 @@ logging.info("%s %s:%s Job started" %
              (startTime.date(), startTime.hour, startTime.minute))
 
 files00 = listdir(downloadDir)
-files = fnmatch.filter(files00, '*multivarm1*.nc')
+files = fnmatch.filter(files00, 'era-int_file01*.nc')
 files.sort()
+
+prefixes = list(map(lambda x: 'era-int_file%s_%s_' % (x,resolution),
+                    ['01', '02', '03']))
+postfixes = list(map(lambda x: x[19:], files))
+
+files_df = pd.DataFrame(
+    {'period': postfixes,
+     'f1': list(map(lambda x: '%s%s' % (prefixes[0], x), postfixes)),
+     'f2': list(map(lambda x: '%s%s' % (prefixes[1], x), postfixes)),
+     'f3': list(map(lambda x: '%s%s' % (prefixes[2], x), postfixes))})
+
 
 # What dates are already ingested in MongoDB ?
 # MongoDB:
@@ -99,7 +110,11 @@ def insertToMongo(vars):
                     vars['mcc'],  # 12
                     vars['hcc'],  # 13
                     vars['si10'], # 14
-                    vars['skt']   # 15
+                    vars['skt'],  # 15
+                    vars['blh'],  # 16
+                    vars['ishf'], # 17
+                    vars['ie'],   # 18
+                    vars['z70']   # 19
                     ])
     
     # Shift the grid so lons go from -180 to 180 instead of 0 to 360.
@@ -138,48 +153,64 @@ def insertToMongo(vars):
             "mcc": round(DAT_shift[12, i, j], ndigits=2),
             "hcc": round(DAT_shift[13, i, j], ndigits=2),
             "si10": round(DAT_shift[14, i, j], ndigits=2),
-            "skt": round(DAT_shift[15, i, j], ndigits=2)
+            "skt": round(DAT_shift[15, i, j], ndigits=2),
+            "blh": round(DAT_shift[16, i, j], ndigits=2),
+            "ishf": round(DAT_shift[17, i, j], ndigits=2),
+            "ie": round(DAT_shift[18, i, j], ndigits=2),
+            "z70": round(DAT_shift[19, i, j], ndigits=2)
         })
 
 
-def insertOneDay(this_day, ncfile, DF):
+def insertOneDay(this_day, ncfiles, DF):
     # Choose one arbitrary day
     # this_day = days.iloc[0]
     logging.info(this_day)
-    ncfile00 = '%s%s' % (downloadDir, ncfile)
-    fh = Dataset(ncfile00, mode='r')
-    lons = fh.variables['longitude'][:]
-    lats = fh.variables['latitude'][:]
+    ncfile01 = '%s%s' % (downloadDir, ncfiles[0])
+    ncfile02 = '%s%s' % (downloadDir, ncfiles[1])
+    ncfile03 = '%s%s' % (downloadDir, ncfiles[2])
+    fh01 = Dataset(ncfile01, mode='r')
+    fh02 = Dataset(ncfile02, mode='r')
+    fh03 = Dataset(ncfile03, mode='r')
+    lons = fh01.variables['longitude'][:]
+    lats = fh01.variables['latitude'][:]
     # Extract the data for this day out of the nc file
     times = DF[DF.date == this_day].time
-    ind = date2index(dates=times.tolist(), nctime=fh.variables['time'])
+    ind01 = date2index(dates=times.tolist(), nctime=fh01.variables['time'])
+    ind02 = date2index(dates=times.tolist(), nctime=fh02.variables['time'])
+    ind03 = date2index(dates=times.tolist(), nctime=fh03.variables['time'])
 
-    vars = {'ci': fh.variables['ci'][ind], # Sea-ice cover [0-1]
-            'sst': fh.variables['sst'][ind], # Sea surface temperature [K]
-            'istl1': fh.variables['istl1'][ind], # Ice temp layer1 [K]
-            'sp': fh.variables['sp'][ind], # Surface pressure [Pa]
-            'stl1': fh.variables['stl1'][ind], # Soil temp lev1 [K]
-            'msl': fh.variables['msl'][ind], # Mean SLP [Pa]
-            'u10': fh.variables['u10'][ind], # wind-u [m/s]
-            'v10': fh.variables['v10'][ind],
-            't2m': fh.variables['t2m'][ind], # 2m temp [K]
-            'd2m': fh.variables['d2m'][ind], # 2 metre dewpoint temperature[K]
-            'al': fh.variables['al'][ind], # Surface albedo [0-1]
-            'lcc': fh.variables['lcc'][ind], # Low cloud cover [0-1]
-            'mcc': fh.variables['mcc'][ind], # Medium cloud cover [0-1]
-            'hcc': fh.variables['hcc'][ind], # High cloud cover [0-1]
-            'si10': fh.variables['si10'][ind], # 10m wind speed [m/s]
-            'skt': fh.variables['skt'][ind], # Skin temperature [K]
+    vars = {'ci': fh01.variables['ci'][ind01], # Sea-ice cover [0-1]
+            'sst': fh01.variables['sst'][ind01], # Sea surface temperature [K]
+            'istl1': fh01.variables['istl1'][ind01], # Ice temp layer1 [K]
+            'sp': fh01.variables['sp'][ind01], # Surface pressure [Pa]
+            'stl1': fh01.variables['stl1'][ind01], # Soil temp lev1 [K]
+            'msl': fh01.variables['msl'][ind01], # Mean SLP [Pa]
+            'u10': fh01.variables['u10'][ind01], # wind-u [m/s]
+            'v10': fh01.variables['v10'][ind01],
+            't2m': fh01.variables['t2m'][ind01], # 2m temp [K]
+            'd2m': fh01.variables['d2m'][ind01], # 2m dewpoint temp.[K]
+            'al': fh01.variables['al'][ind01], # Surface albedo [0-1]
+            'lcc': fh01.variables['lcc'][ind01], # Low cloud cover [0-1]
+            'mcc': fh01.variables['mcc'][ind01], # Medium cloud cover [0-1]
+            'hcc': fh01.variables['hcc'][ind01], # High cloud cover [0-1]
+            'si10': fh01.variables['si10'][ind01], # 10m wind speed [m/s]
+            'skt': fh01.variables['skt'][ind01], # Skin temperature [K]
+            'blh': fh02.variables['blh'][ind02], # Boundary layer hgt [m]
+            'ishf': fh02.variables['ishf'][ind02],# Inst.surf.sensbl.heatflux [W/m2]
+            'ie': fh02.variables['ie'][ind02],# Instantaneous moisture flux [kg*m^-2*s^-1]
+            'z70': fh03.variables['z'][ind03], # Geopot. height @70hPa [m]
             'lons': lons,
             'lats': lats,
             'this_day': this_day}
 
     insertToMongo(vars)
-    if (this_day == date(1980, 1, 2)):
+    if (this_day == date(1980, 1, 1)):
         # Setup the indexes just once
         doIndexing()
 
-    fh.close()
+    fh01.close()
+    fh02.close()
+    fh03.close()
 
 
 def getDatesDF(nc_file):  # insertFile(nc_file):
@@ -201,17 +232,20 @@ def getDatesDF(nc_file):  # insertFile(nc_file):
     return DF
 
 
-for this_file in files:
-    DF = getDatesDF(this_file)
+for this_period in files_df.period:
+    these_files = [files_df.query('period==@this_period').f1.item(),
+                   files_df.query('period==@this_period').f2.item(),
+                   files_df.query('period==@this_period').f3.item()]
+    DF = getDatesDF(these_files[0])
     days = DF.date.drop_duplicates()
     # if (len(days) > 0):
     # filter(lambda x: insertOneDay(x, fh, df3), days) # 1cpu version
     # Parallel multicore version:
 
     def insertOneDayPar(d):
-        insertOneDay(d, this_file, DF)
+        insertOneDay(d, these_files, DF)
     Parallel(n_jobs=num_cores)(delayed(insertOneDayPar)(this_day)
-                               for this_day in days)  # !!!!!!!!!!
+                               for this_day in days)
 
 do_checks = False
 if do_checks is True:

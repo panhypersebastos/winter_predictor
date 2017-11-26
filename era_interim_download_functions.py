@@ -5,9 +5,9 @@ import pandas as pd
 
 def getMultivarMon(from_day, to_day, downloadDir, server, resolution):
     # get MULTIPLE VARIABLES :
-    filename_multivar1 = 'era-int_multivarm1_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
-    filename_multivar2 = 'era-int_multivarm2_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
-    filename_z = 'era-int_Zvar_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
+    filename01 = 'era-int_file01_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
+    filename02 = 'era-int_file02_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
+    filename03 = 'era-int_file03_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
     
     yrs = list(range(from_day.year, to_day.year+1))
     mts = list(['01-01', '02-01', '03-01', '04-01', '05-01', '06-01', '07-01',
@@ -25,7 +25,7 @@ def getMultivarMon(from_day, to_day, downloadDir, server, resolution):
     dts = dts.query('date<=@to_day')
     datestring = "/".join(dts.datestr)
 
-    print("PROCESSING %s..." % (filename_multivar1))
+    print("PROCESSING %s..." % (filename01))
     server.retrieve({
         "class": "ei",
         "dataset": "interim",
@@ -37,9 +37,9 @@ def getMultivarMon(from_day, to_day, downloadDir, server, resolution):
         "stream": "moda",
         "type": "an",
         "format": "netcdf",
-        "target": "%s/%s" % (downloadDir, filename_multivar1),
+        "target": "%s/%s" % (downloadDir, filename01),
     })
-    print("PROCESSING %s..." % (filename_multivar2))
+    print("PROCESSING %s..." % (filename02))
     server.retrieve({
         "class": "ei",
         "dataset": "interim",
@@ -51,9 +51,9 @@ def getMultivarMon(from_day, to_day, downloadDir, server, resolution):
         "stream": "moda",
         "format": "netcdf",
         "type": "fc",
-        "target":  "%s/%s" % (downloadDir, filename_multivar2),
+        "target":  "%s/%s" % (downloadDir, filename02),
     })
-    print("PROCESSING %s..." % (filename_z))
+    print("PROCESSING %s..." % (filename03))
     server.retrieve({
         "class": "ei",
         "dataset": "interim",
@@ -66,6 +66,6 @@ def getMultivarMon(from_day, to_day, downloadDir, server, resolution):
         "stream": "moda",
         "type": "an",
         "format": "netcdf",
-        "target":  "%s/%s" % (downloadDir, filename_z),
+        "target":  "%s/%s" % (downloadDir, filename03),
     })
     

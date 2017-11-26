@@ -228,8 +228,57 @@ exVar <- data_frame(eof = 1:cutoff,
 exVar
 ```
 
-These plots do not corresponds to Wang et al. (nat, 2017) because we have used Mean Sea-Level Pressure. Wang et al. (2017) are using geopotential height at 70hPa. We need to load this variable into mongodb and repeat the analysis.
+These plots do not corresponds to Wang et al. (nat, 2017) because we have used Mean Sea-Level Pressure. Wang et al. (2017) are using geopotential height at 70hPa. We need to load this variable into mongodb and repeat the analysis. 
+
+When it's done, let's explore again the data.
+
+```{r}
+this_variable <- 'z70'
+this_gridids <- paste(grid_df$id_grid, collapse = ',')
+pip <- sprintf('[ {"$project": {"id_grid": 1, "date": 1, "%s": 1, "month": {"$month": "$date"}}},
+                  {"$match": {"month": {"$in": [9, 10, 11, 12, 1, 2]},
+                              "id_grid": {"$in": [%s]} }},
+                  {"$project": {"_id": 0, "id_grid": 1, "date": 1, "%s": 1}} ]', 
+               this_variable,
+               this_gridids,
+               this_variable)
+res <- con_data$aggregate(pipeline = pip)
+```
+Manipulations:
 
 
+```{r}
+dat <- res %>% spread(key = id_grid, value = z70) %>% as_data_frame()
+pca <- prcomp(x = dat %>% dplyr::select(-date), center = T)
+eof <- data_frame(id_grid= colnames(dat %>% dplyr::select(-date)) %>% as.integer(), 
+                  eof1 = pca$rotation[,1],
+                  eof2 = pca$rotation[,2],
+                  eof3 = pca$rotation[,3],
+                  eof4 = pca$rotation[,4])
+eof_df <- grid_df %>% left_join(eof)
+# Create a raster
+pts <- dplyr::select(eof_df, lng, lat) %>% SpatialPoints()
+projection(pts) <- "+proj=longlat"
+pix <- SpatialPixelsDataFrame(pts, #tolerance = 0.5, 
+                              data = eof_df)
+eof1 <- raster(pix['eof1'])
+eof2 <- raster(pix['eof2'])
+eof3 <- raster(pix['eof3'])
+eof4 <- raster(pix['eof4'])
+p1 <- plotPolar(ras = eof1)
+p2 <- plotPolar(ras = eof2)
+p3 <- plotPolar(ras = eof3)
+p4 <- plotPolar(ras = eof4)
+grid.newpage()
+pushViewport(viewport(layout=grid.layout(2, 2)))
+print(p1, vp=viewport(layout.pos.row =1, layout.pos.col = 1))
+print(p2, vp=viewport(layout.pos.row =1, layout.pos.col = 2))
+print(p3, vp=viewport(layout.pos.row =2, layout.pos.col = 1))
+print(p4, vp=viewport(layout.pos.row =2, layout.pos.col = 2))
+```
 
+
+```{r}
+plotPolar(eof1)
+```
 
