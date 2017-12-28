@@ -26,10 +26,12 @@ db = mg.ECMWF
 ERA_vers = 'lores'
 if (ERA_vers == 'hires'):
     col_dat = 'ERAINT_monthly'
+    col_anom = 'ERAINT_monthly_anom'
     col_grid = 'ERAINT_grid'
     resolution = 0.25
 elif (ERA_vers == 'lores'):
     col_dat = 'ERAINT_lores_monthly'
+    col_anom = 'ERAINT_lores_monthly_anom'
     col_grid = 'ERAINT_lores_grid'
     resolution = 2.5
 
@@ -52,7 +54,7 @@ df = pd.DataFrame(list(res))
 
 # Create a new column with the month index
 df = df.assign(month=list(map(lambda x: x.month, df.date)))
-df.head()
+#df.head()
 
 # Atomic detrending
 # * Extract anomaly with regard to long-term trend
@@ -66,7 +68,7 @@ ts = df.query('month == %s' % (this_month)).\
 X = (ts.date - ts.date[0]).dt.days.values.reshape(-1, 1)
 
 
-def getAnom(vn):
+def getAnom(vn): # 'vn' is the variable name
     model = skl_lm.LinearRegression()
     y = ts[[vn]]
     model.fit(X, y)
@@ -74,6 +76,32 @@ def getAnom(vn):
     resid = lm_pred - y
     return resid
 
+
 anom_df = pd.concat(list(map(getAnom, varnames)), axis=1)
+anom_df = pd.concat([ts[['date', 'year', 'month']], anom_df], axis=1)
+anom_df = anom_df.assign(id_grid=this_id_grid)
+#anom_df.head()
+
+# Insert this dataframe in MongoDb
+con_anom = db[col_anom]
+anom_dict = anom_df.to_dict(orient='records')
+con_anom.insert_many(anom_dict)
+
+
+# Create Index
+!!!! HERE !!!!
+
+
+
+
+con_anom.count()
+#con_anom.drop()
+
+
+
 anom_df.shape
 anom_df.z70
+anom_df.keys()
+
+
+con_data.index_information()
