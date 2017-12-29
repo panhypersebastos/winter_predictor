@@ -6,35 +6,27 @@
 # To run this code in a BATCH mode, enter the following command in the shell:
 # python /home/dmasson/CloudStation/code/winter_predictor/era_interim_indexing.py & 
 
-from netCDF4 import Dataset, netcdftime, num2date, date2num, date2index
-from datetime import datetime, timedelta, date
-import pytz
-import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.basemap import Basemap, addcyclic, shiftgrid
+from datetime import datetime
 import pymongo
 from pymongo import IndexModel, ASCENDING, DESCENDING
-from pprint import pprint
-from os import listdir
 import os
-import pandas as pd
-import fnmatch
 import logging
-from joblib import Parallel, delayed
-import multiprocessing
-from functools import partial
 
-ERA_vers = 'lores' # or 'hires'
-
+ERA_vers = 'lores'
 if (ERA_vers == 'hires'):
     col_dat = 'ERAINT_monthly'
+    col_anom = 'ERAINT_monthly_anom'
     col_grid = 'ERAINT_grid'
     resolution = 0.25
 elif (ERA_vers == 'lores'):
     col_dat = 'ERAINT_lores_monthly'
+    col_anom = 'ERAINT_lores_monthly_anom'
     col_grid = 'ERAINT_lores_grid'
     resolution = 2.5
 
+
+# Input :
+this_col = col_anom  # col_dat or col_anom
 logfilename = '/home/dmasson/data/logfiles/era-interim_indexing.log'
 if os.path.exists(logfilename):
     os.remove(logfilename)
@@ -45,13 +37,8 @@ startTime = datetime.now()
 logging.info("%s %s:%s Job started" %
              (startTime.date(), startTime.hour, startTime.minute))
 
-mongo_host_local = 'mongodb://localhost:27017/'
-mg = pymongo.MongoClient(mongo_host_local)
 
-db = mg.ECMWF
-con_data = db[col_dat]
-
-def doIndexing():
+def doIndexing(col):
     # Add indexes
     logging.info('--- Starting indexing ---')
     index1 = pymongo.IndexModel([("date", pymongo.DESCENDING)], name="date_-1")
@@ -60,7 +47,8 @@ def doIndexing():
     mongo_host_local = 'mongodb://localhost:27017/'
     con = pymongo.MongoClient(mongo_host_local)
     db = con.ECMWF
-    db[col_dat].create_indexes([index1, index2, index3])
+    db[col].create_indexes([index1, index2, index3])
     logging.info('--- Indexes added ---')
 
-doIndexing()
+
+doIndexing(col=this_col)

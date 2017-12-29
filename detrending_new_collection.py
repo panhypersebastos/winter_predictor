@@ -9,18 +9,16 @@
 # python ~/CloudStation/code/winter_predictor/detrending_new_collection.py & 
 
 import numpy as np
-import matplotlib.pyplot as plt
 import pymongo
-from pprint import pprint
-from datetime import datetime, timedelta, date
 import pandas as pd
-import plotly.graph_objs as go
-import plotly.offline as py
 import sklearn.linear_model as skl_lm
 from itertools import compress
+from joblib import Parallel, delayed
+
+num_cores = 3  # multiprocessing.cpu_count()
 
 mongo_host_local = 'mongodb://localhost:27017/'
-mg = pymongo.MongoClient(mongo_host_local)
+mg = pymongo.MongoClient(mongo_host_local, connect=False)
 db = mg.ECMWF
 
 ERA_vers = 'lores'
@@ -46,62 +44,57 @@ varnames = list(compress(keynames, ~vind))
 
 this_id_grid = 777
 this_month = 1
-this_variable = 'z70'
-
-qry = {"id_grid": this_id_grid}
-res = con_data.find(filter=qry, projection={"_id": 0})
-df = pd.DataFrame(list(res))
-
-# Create a new column with the month index
-df = df.assign(month=list(map(lambda x: x.month, df.date)))
-#df.head()
-
-# Atomic detrending
-# * Extract anomaly with regard to long-term trend
-# * Because the de-trending is done for each month,
-#   it also serves as de-seasonaization
-
-ts = df.query('month == %s' % (this_month)).\
-     sort_values('date').\
-     reset_index(drop=True)
-# Covariate is the number of days since the beg. of TS
-X = (ts.date - ts.date[0]).dt.days.values.reshape(-1, 1)
 
 
-def getAnom(vn): # 'vn' is the variable name
-    model = skl_lm.LinearRegression()
-    y = ts[[vn]]
-    model.fit(X, y)
-    lm_pred = model.predict(X)
-    resid = lm_pred - y
-    return resid
+def insertToMongo(this_id_grid, this_month):
+    mg = pymongo.MongoClient(mongo_host_local, connect=False)
+    db = mg.ECMWF
+    con_data = db[col_dat]
+    qry = {"id_grid": this_id_grid}
+    res = con_data.find(filter=qry, projection={"_id": 0})
+    df = pd.DataFrame(list(res))
+
+    # Create a new column with the month index
+    df = df.assign(month=list(map(lambda x: x.month, df.date)))
+
+    # Atomic detrending
+    # * Extract anomaly with regard to long-term trend
+    # * Because the de-trending is done for each month,
+    #   it also serves as de-seasonaization
+
+    ts = df.query('month == %s' % (this_month)).\
+        sort_values('date').\
+        reset_index(drop=True)
+    # Covariate is the number of days since the beg. of TS
+    X = (ts.date - ts.date[0]).dt.days.values.reshape(-1, 1)
+
+    def getAnom(vn):  # 'vn' is the variable name
+        model = skl_lm.LinearRegression()
+        y = ts[[vn]]
+        model.fit(X, y)
+        lm_pred = model.predict(X)
+        resid = lm_pred - y
+        return resid
+
+    anom_df = pd.concat(list(map(getAnom, varnames)), axis=1)
+    anom_df = pd.concat([ts[['date', 'year', 'month']], anom_df], axis=1)
+    anom_df = anom_df.assign(id_grid=this_id_grid)
+
+    # Insert this dataframe in MongoDb
+    con_anom = db[col_anom]
+    anom_dict = anom_df.to_dict(orient='records')
+    con_anom.insert_many(anom_dict)
 
 
-anom_df = pd.concat(list(map(getAnom, varnames)), axis=1)
-anom_df = pd.concat([ts[['date', 'year', 'month']], anom_df], axis=1)
-anom_df = anom_df.assign(id_grid=this_id_grid)
-#anom_df.head()
+grid_list = db[col_grid].distinct(key='id_grid')[0:2]
+months_list = np.arange(1, 12+1)
 
-# Insert this dataframe in MongoDb
-con_anom = db[col_anom]
-anom_dict = anom_df.to_dict(orient='records')
-con_anom.insert_many(anom_dict)
+# Parallel insertion
+Parallel(n_jobs=num_cores)(delayed(insertToMongo)(i, j)
+                           for i in grid_list for j in months_list)
 
-
-# Create Index
-!!!! HERE !!!!
-
-
-
-
-con_anom.count()
+#con_anom = db[col_anom]
+#con_anom.count()
 #con_anom.drop()
-
-
-
-anom_df.shape
-anom_df.z70
-anom_df.keys()
-
-
-con_data.index_information()
+#con_anom.index_information
+# Create Index by executing 'era_interim_indexing.py'
