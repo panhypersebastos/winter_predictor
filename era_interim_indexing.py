@@ -24,9 +24,11 @@ elif (ERA_vers == 'lores'):
     col_grid = 'ERAINT_lores_grid'
     resolution = 2.5
 
-
+# -------
 # Input :
 this_col = col_anom  # col_dat or col_anom
+# -------
+
 logfilename = '/home/dmasson/data/logfiles/era-interim_indexing.log'
 if os.path.exists(logfilename):
     os.remove(logfilename)
@@ -52,3 +54,8 @@ def doIndexing(col):
 
 
 doIndexing(col=this_col)
+
+
+endTime = datetime.now()
+logging.info("%s %s:%s Job done" %
+             (endTime.date(), startTime.hour, startTime.minute))

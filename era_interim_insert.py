@@ -247,12 +247,10 @@ for this_period in files_df.period:
     Parallel(n_jobs=num_cores)(delayed(insertOneDayPar)(this_day)
                                for this_day in days)
 
-do_checks = False
-if do_checks is True:
-    pprint(db.data.find_one())
-    db[col_dat].count()
-    db[col_dat].distinct(key='date')
 
 endTime = datetime.now()
 logging.info("%s %s:%s Job Done !!!" %
              (endTime.date(), endTime.hour, endTime.minute))
+
+# Create Index by executing 'era_interim_indexing.py' on the
+# proper collection

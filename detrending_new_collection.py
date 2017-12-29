@@ -14,8 +14,22 @@ import pandas as pd
 import sklearn.linear_model as skl_lm
 from itertools import compress
 from joblib import Parallel, delayed
+import os
+import logging
+from datetime import datetime
 
 num_cores = 3  # multiprocessing.cpu_count()
+
+logfilename = '/home/dmasson/data/logfiles/detrending_new_collection.log'
+if os.path.exists(logfilename):
+    os.remove(logfilename)
+logging.basicConfig(filename=logfilename,
+                    format='%(asctime)s %(message)s', level=logging.DEBUG)
+
+startTime = datetime.now()
+logging.info("%s %s:%s Job started" %
+             (startTime.date(), startTime.hour, startTime.minute))
+
 
 mongo_host_local = 'mongodb://localhost:27017/'
 mg = pymongo.MongoClient(mongo_host_local, connect=False)
@@ -40,10 +54,6 @@ fo = con_data.find_one()
 keynames = pd.Series(list(fo.keys()))
 vind = keynames.isin(['_id', 'id_grid', 'date', 'year'])
 varnames = list(compress(keynames, ~vind))
-
-
-this_id_grid = 777
-this_month = 1
 
 
 def insertToMongo(this_id_grid, this_month):
@@ -86,15 +96,16 @@ def insertToMongo(this_id_grid, this_month):
     con_anom.insert_many(anom_dict)
 
 
-grid_list = db[col_grid].distinct(key='id_grid')[0:2]
+grid_list = db[col_grid].distinct(key='id_grid')
 months_list = np.arange(1, 12+1)
 
 # Parallel insertion
 Parallel(n_jobs=num_cores)(delayed(insertToMongo)(i, j)
                            for i in grid_list for j in months_list)
 
-#con_anom = db[col_anom]
-#con_anom.count()
-#con_anom.drop()
-#con_anom.index_information
-# Create Index by executing 'era_interim_indexing.py'
+endTime = datetime.now()
+logging.info("%s %s:%s Job Done !!!" %
+             (endTime.date(), endTime.hour, endTime.minute))
+
+# Create Index by executing 'era_interim_indexing.py' on the
+# proper collection
