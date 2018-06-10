@@ -1,0 +1,7 @@
+OFFLINES REMARKS
+
+- Don't forget to check important updates for ERA-int: (i) longer extension back in time (i.e. before 1979), (ii) more frequent update.
+
+- HDD: is there really only 10 years of historical data and NO detreding applied ??
+
+- Create __self__ oriented object programming style sourcing important functions, like for loading station data, predictors, do the prediction, etc.

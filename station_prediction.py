@@ -1,5 +1,13 @@
-# Station Prediction 
-# This code bring two parts together:
+# Station Prediction
+
+# This is the operational version of the juyper notebook
+# called "station_prediction.ipnb"
+
+# It takes as input a list of stations. The output is a list of stations
+# for which the prediction skill (in R2) of (winter December-January)
+# temperature anomalies is above 40%.
+
+# It brings two parts together:
 # * station_exploration.ipynb
 # * era-int_NAO_prediction.ipynb
 
@@ -17,8 +25,24 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LassoCV
 from datetime import datetime
 import os
+import sys
 
-logfilename = '/home/dmasson/data/logfiles/station_prediction.log'
+
+ext_input = sys.argv
+
+special_cntry = pd.read_csv('~/CloudStation/code/winter_predictor/special_countries.csv')
+
+if len(sys.argv) > 1:
+    if sys.argv[1] != '-i':
+        this_country = sys.argv[1]
+        lname = this_country
+else:
+    i = 3
+    this_country = special_cntry.name[i]
+    lname = special_cntry.log[i]
+
+
+logfilename = '/home/dmasson/data/logfiles/station_prediction_%s.log' % lname
 if os.path.exists(logfilename):
     os.remove(logfilename)
 logging.basicConfig(filename=logfilename,
@@ -321,10 +345,11 @@ db = mg.GHCN
 
 # ------------------------------------------------------
 # ------------------------------------------------------
-# Find Swiss stations
+# Find Desired stations
+db.stations.distinct('country')
 sta_df = pd.DataFrame(list(db.stations.find(filter={'country':
-                                                    'SWITZERLAND'})))
-sta_df
+                                                    this_country})))
+logging.info('%s: %s stations to analyse.' % (this_country, sta_df.shape[0]))
 # ------------------------------------------------------
 # ------------------------------------------------------
 
@@ -359,19 +384,24 @@ def queryData(station_id, mon):
               pipe(lambda df: df.rename(columns={'ave': station_id}))
     return(risk_df)
 
-res_df = queryData(station_id=64606660000, mon=['12', '1'])
-ids = sta_df.station_id#[:5]
+
+# res_df = queryData(station_id=64606660000, mon=['12', '1'])
+# ids = sta_df.station_id
 
 
 
-# Generic function
+# Generic function to query station anomalies
+# input: nation names, months of interest
 def getStationAgg(station_ids, mon):
     all_df00 = list(map(lambda x: queryData(station_id=int(x), mon=mon),
                         station_ids))
+    # NA: at least 20 data obs should be non-NA
     all_df = reduce(lambda x, y: pd.merge(x, y,on='wyear', how='outer'),
-                    all_df00).pipe(lambda df: df.sort_values('wyear', ascending=True)).reset_index(drop=True).pipe(lambda df: df.dropna(axis=1, thresh=20) ) # NA: at least 20 data obs should be non-NA
+                    all_df00).pipe(lambda df: df.sort_values('wyear', ascending=True)).reset_index(drop=True).pipe(lambda df: df.dropna(axis=1, thresh=20) )
     return(all_df)
 
+# This is where the winter months of December and January
+# are selected for prediction:
 all_df0 = getStationAgg(station_ids=sta_df.station_id, mon=['12', '1'])
 
 
@@ -390,11 +420,11 @@ all_df = station_id_to_name(all_df0=all_df0)
 
 # Station Anomalies
 anom_df = pd.DataFrame(all_df)
-
 colnames = anom_df.drop(labels='wyear', axis=1).columns
 
+
 for colname in colnames:
-    #colname = colnames[0]
+    # colname = colnames[0]
     model = skl_lm.LinearRegression()
     # Handle the NA problem
     reg_df = anom_df[['wyear', colname]].pipe(lambda df: df.dropna())
@@ -409,14 +439,12 @@ for colname in colnames:
 anom_df = anom_df.drop(labels='fit', axis=1)
 
 
+# Create the big Regression DataFrame
 
-### Create Regression DataFrame
-
-# Create Regression DataFrame
 dat_df = pd.merge(anom_df, X_df, on='wyear')
 
 
-## Regularization / Lasso Model Selection
+# Regularization / Lasso Model Selection
 
 def predOneStation(target, dat_df):
     # target = 'ZURICH (TOWN/'
@@ -453,8 +481,7 @@ def predOneStation(target, dat_df):
     X_stan = scaler.transform(X)
     # In order to find the optimal penalty parameter alpha,
     # use Cross-validated Lasso
-    #modlcv = LassoLarsIC(criterion='aic')
-    modlcv = LassoCV(cv=3, n_alphas=10000,max_iter=10000)
+    modlcv = LassoCV(cv=3, n_alphas=10000, max_iter=10000)
     modlcv.fit(X_stan, y)
     alpha = modlcv.alpha_
 
@@ -467,15 +494,23 @@ def predOneStation(target, dat_df):
     # According to the Lasso, the 3 strongest predictors are:
     # PC1_ci_10, PC2_z70_10, PC3_z70_9 
     importance_df.sort_values('absCoef', ascending=False)
-    res = dict({'R2': modlcv.score(X_stan, y),'alpha': alpha, 'importance_df': importance_df})
+    res = dict({'R2': modlcv.score(X_stan, y), 'nyears_used': dat_df.shape[0],
+                'alpha': alpha, 'importance_df': importance_df})
     return(res)
 
 #z = predOneStation(target='PAYERNE', dat_df=dat_df)
 
-z = map(predOneStation, sta_df.name)
+#z = map(predOneStation, sta_df.name)
 
 for sta_name in colnames:
     z = predOneStation(target=sta_name, dat_df=dat_df)
     if z['R2'] > 0.4:
-        print(sta_name, z)
+        logging.info('                                      ')
+        logging.info('-------------HIT for "%s" -------------------' % (sta_name))
 
+        
+        logging.info(sta_df.query('name == @sta_name'))
+        logging.info('%s %s' % (sta_name, z))
+
+logging.info('                      ')
+logging.info("Prediction job done.")
