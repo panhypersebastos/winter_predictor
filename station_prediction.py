@@ -5,7 +5,7 @@
 
 # It takes as input a list of stations. The output is a list of stations
 # for which the prediction skill (in R2) of (winter December-January)
-# temperature anomalies is above 40%.
+# temperature anomalies is above 50%.
 
 # It brings two parts together:
 # * station_exploration.ipynb
@@ -13,6 +13,9 @@
 
 # It scan a large subset of
 # Northern hemisphere stations and look where there is predictability
+
+# Commnand:
+# python station_prediction.py <official_country_name>
 
 import numpy as np
 import logging
@@ -37,7 +40,7 @@ if len(sys.argv) > 1:
         this_country = sys.argv[1]
         lname = this_country
 else:
-    i = 3
+    i = 3  # check 'special_countries.csv' and enter the index here
     this_country = special_cntry.name[i]
     lname = special_cntry.log[i]
 
@@ -395,7 +398,7 @@ def queryData(station_id, mon):
 def getStationAgg(station_ids, mon):
     all_df00 = list(map(lambda x: queryData(station_id=int(x), mon=mon),
                         station_ids))
-    # NA: at least 20 data obs should be non-NA
+    # NA: at least 20 years of data observation should be non-NA
     all_df = reduce(lambda x, y: pd.merge(x, y,on='wyear', how='outer'),
                     all_df00).pipe(lambda df: df.sort_values('wyear', ascending=True)).reset_index(drop=True).pipe(lambda df: df.dropna(axis=1, thresh=20) )
     return(all_df)
@@ -411,6 +414,8 @@ def station_id_to_name(all_df0):
     sta_df0 = pd.DataFrame(list(db.stations.find(filter={'station_id': {"$in": list(idf)}})))
 
     nam_df = sta_df0.query('station_id in @idf').pipe(lambda df: df[['station_id', 'name']])
+    # We need to distinguish the stations by adding an id to the name
+    nam_df['name'] = list(map(lambda x: '%s-%s' % (nam_df.index[x], nam_df.name[x]), np.arange(nam_df.shape[0])))
     newnames = dict(nam_df.to_dict('split')['data'])
     all_df = all_df0.rename(columns=newnames)
     return(all_df)
@@ -504,7 +509,7 @@ def predOneStation(target, dat_df):
 
 for sta_name in colnames:
     z = predOneStation(target=sta_name, dat_df=dat_df)
-    if z['R2'] > 0.4:
+    if z['R2'] > 0.5:
         logging.info('                                      ')
         logging.info('-------------HIT for "%s" -------------------' % (sta_name))
 
