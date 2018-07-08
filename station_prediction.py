@@ -3,7 +3,10 @@
 # This is the operational version of the juyper notebook
 # called "station_prediction.ipnb"
 
-# It takes as input a list of stations. The output is a list of stations
+# It reads input.csv containing the input countries to
+# search for predictible stations.
+
+# The output is a list of stations
 # for which the prediction skill (in R2) of (winter December-January)
 # temperature anomalies is above 50%.
 
@@ -15,7 +18,7 @@
 # Northern hemisphere stations and look where there is predictability
 
 # Commnand:
-# python station_prediction.py <official_country_name>
+# python station_prediction.py &
 
 import numpy as np
 import logging
@@ -26,33 +29,32 @@ import sklearn.linear_model as skl_lm
 from functools import reduce
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LassoCV
-from datetime import datetime
 import os
 import sys
 
 
 ext_input = sys.argv
 
-special_cntry = pd.read_csv('~/CloudStation/code/winter_predictor/special_countries.csv')
+# All countries to explore: (Switzerland is nr. 29)
+input_cntry = list(pd.read_csv('~/CloudStation/code/winter_predictor/input.csv').name)
 
-if len(sys.argv) > 1:
-    if sys.argv[1] != '-i':
-        this_country = sys.argv[1]
-        lname = this_country
-else:
-    i = 3  # check 'special_countries.csv' and enter the index here
-    this_country = special_cntry.name[i]
-    lname = special_cntry.log[i]
+# The logfile details all processes:
+logfilename = '/home/dmasson/CloudStation/code/winter_predictor/logfiles/station_prediction.log'
+# The prediction results (i.e. station name, id, coordinates, performance, etc.)
+# are summarized in the following file:
+result_file = '/home/dmasson/CloudStation/code/winter_predictor/logfiles/results.csv'
 
-
-logfilename = '/home/dmasson/data/logfiles/station_prediction_%s.log' % lname
 if os.path.exists(logfilename):
     os.remove(logfilename)
+    os.remove(result_file)
+    
 logging.basicConfig(filename=logfilename,
                     format='%(asctime)s %(message)s', level=logging.DEBUG)
-
-startTime = datetime.now()
 logging.info("Prediction job started")
+
+pred_log = open(result_file, 'w')
+pred_log.write('country,name,station_id,R2,nobs,lon,lat,elev,landcover\n')
+pred_log.close()
 
 
 mongo_host_local = 'mongodb://localhost:27017/'
@@ -349,173 +351,194 @@ db = mg.GHCN
 # ------------------------------------------------------
 # ------------------------------------------------------
 # Find Desired stations
-db.stations.distinct('country')
-sta_df = pd.DataFrame(list(db.stations.find(filter={'country':
-                                                    this_country})))
-logging.info('%s: %s stations to analyse.' % (this_country, sta_df.shape[0]))
-# ------------------------------------------------------
-# ------------------------------------------------------
+
+# HERE !!! Implement a function to loop over a selection of countries
+subset = input_cntry #[input_cntry[i] for i in [29, 12]]
+
+for this_country in subset:
+    db.stations.distinct('country')
+    sta_df = pd.DataFrame(list(db.stations.find(filter={'country':
+                                                        this_country})))
+    logging.info('%s: %s stations to analyse.' % (this_country, sta_df.shape[0]))
+    # ------------------------------------------------------
+    # ------------------------------------------------------
 
 
-## Query function
-# 
-# Create a function that returns the "risk_df" as above,
-# and as a function of the following inputs:
-# * station id
-# * any groupement of dec, jan, feb (for instance, [dec,jan])
-# 
+    ## Query function
+    # 
+    # Create a function that returns the "risk_df" as above,
+    # and as a function of the following inputs:
+    # * station id
+    # * any groupement of dec, jan, feb (for instance, [dec,jan])
+    # 
 
 
-def queryData(station_id, mon):
-    dat_df = pd.DataFrame(
-        list(db.data.find(filter={'station_id': station_id}))).\
-        pipe(lambda df: df[['1', '2', '3', '4', '5', '6',
-                            '7', '8', '9', '10', '11', '12', 'year']]).\
-                            pipe(lambda df: df.query('year >= 1979'))
-    w_df = dat_df[['year', '1', '2', '12']]
-    # Reformat data
-    dec_df = w_df[['year', '12']]
-    dec_df = dec_df.assign(wyear=dec_df.year+1).\
-             pipe(lambda df: df[['wyear', '12']])
-    jf_df = w_df[['year', '1', '2']].\
-            pipe(lambda df: df.rename(columns={'year':'wyear'}))
-    winter_df = pd.merge(dec_df, jf_df, on='wyear')
-    # Do the aggregation for december-february risk period
-    risk_df = winter_df
-    risk_df['ave'] = risk_df[mon].apply(func=np.mean, axis=1)
-    risk_df = risk_df[['wyear', 'ave']].\
-              pipe(lambda df: df.rename(columns={'ave': station_id}))
-    return(risk_df)
+    def queryData(station_id, mon):
+        dat_df = pd.DataFrame(
+            list(db.data.find(filter={'station_id': station_id}))).\
+            pipe(lambda df: df[['1', '2', '3', '4', '5', '6',
+                                '7', '8', '9', '10', '11', '12', 'year']]).\
+                                pipe(lambda df: df.query('year >= 1979'))
+        w_df = dat_df[['year', '1', '2', '12']]
+        # Reformat data
+        dec_df = w_df[['year', '12']]
+        dec_df = dec_df.assign(wyear=dec_df.year+1).\
+                 pipe(lambda df: df[['wyear', '12']])
+        jf_df = w_df[['year', '1', '2']].\
+                pipe(lambda df: df.rename(columns={'year':'wyear'}))
+        winter_df = pd.merge(dec_df, jf_df, on='wyear')
+        # Do the aggregation for december-february risk period
+        risk_df = winter_df
+        risk_df['ave'] = risk_df[mon].apply(func=np.mean, axis=1)
+        risk_df = risk_df[['wyear', 'ave']].\
+                  pipe(lambda df: df.rename(columns={'ave': station_id}))
+        return(risk_df)
 
 
-# res_df = queryData(station_id=64606660000, mon=['12', '1'])
-# ids = sta_df.station_id
+    # res_df = queryData(station_id=64606660000, mon=['12', '1'])
+    # ids = sta_df.station_id
 
 
 
-# Generic function to query station anomalies
-# input: nation names, months of interest
-def getStationAgg(station_ids, mon):
-    all_df00 = list(map(lambda x: queryData(station_id=int(x), mon=mon),
-                        station_ids))
-    # NA: at least 20 years of data observation should be non-NA
-    all_df = reduce(lambda x, y: pd.merge(x, y,on='wyear', how='outer'),
-                    all_df00).pipe(lambda df: df.sort_values('wyear', ascending=True)).reset_index(drop=True).pipe(lambda df: df.dropna(axis=1, thresh=20) )
-    return(all_df)
+    # Generic function to query station anomalies
+    # input: nation names, months of interest
+    def getStationAgg(station_ids, mon):
+        all_df00 = list(map(lambda x: queryData(station_id=int(x), mon=mon),
+                            station_ids))
+        # NA: at least 30 years of data observation should be non-NA
+        all_df = reduce(lambda x, y: pd.merge(x, y,on='wyear', how='outer'),
+                        all_df00).pipe(lambda df: df.sort_values('wyear', ascending=True)).reset_index(drop=True).pipe(lambda df: df.dropna(axis=1, thresh=30) )
+        return(all_df)
 
-# This is where the winter months of December and January
-# are selected for prediction:
-all_df0 = getStationAgg(station_ids=sta_df.station_id, mon=['12', '1'])
-
-
-# Generic rename function
-def station_id_to_name(all_df0):
-    idf = all_df0.drop(labels='wyear', axis=1).columns
-    sta_df0 = pd.DataFrame(list(db.stations.find(filter={'station_id': {"$in": list(idf)}})))
-
-    nam_df = sta_df0.query('station_id in @idf').pipe(lambda df: df[['station_id', 'name']])
-    # We need to distinguish the stations by adding an id to the name
-    nam_df['name'] = list(map(lambda x: '%s-%s' % (nam_df.index[x], nam_df.name[x]), np.arange(nam_df.shape[0])))
-    newnames = dict(nam_df.to_dict('split')['data'])
-    all_df = all_df0.rename(columns=newnames)
-    return(all_df)
-
-all_df = station_id_to_name(all_df0=all_df0)
+    # This is where the winter months of December and January
+    # are selected for prediction:
+    all_df0 = getStationAgg(station_ids=sta_df.station_id, mon=['12', '1'])
 
 
-# Station Anomalies
-anom_df = pd.DataFrame(all_df)
-colnames = anom_df.drop(labels='wyear', axis=1).columns
+    # Generic rename function
+    def station_id_to_name(all_df0):
+        idf = all_df0.drop(labels='wyear', axis=1).columns
+        sta_df0 = pd.DataFrame(list(db.stations.find(filter={'station_id': {"$in": list(idf)}})))
+
+        nam_df = sta_df0.query('station_id in @idf').pipe(lambda df: df[['station_id', 'name']])
+        # We need to distinguish the stations by adding an id to the name
+        nam_df['name'] = list(map(lambda x: '%s-%s' % (nam_df.index[x], nam_df.name[x]), np.arange(nam_df.shape[0])))
+        newnames = dict(nam_df.to_dict('split')['data'])
+        all_df = all_df0.rename(columns=newnames)
+        return(all_df)
+
+    all_df = station_id_to_name(all_df0=all_df0)
 
 
-for colname in colnames:
-    # colname = colnames[0]
-    model = skl_lm.LinearRegression()
-    # Handle the NA problem
-    reg_df = anom_df[['wyear', colname]].pipe(lambda df: df.dropna())
-    X = reg_df.wyear.values.reshape(-1, 1)
-    X_pred = anom_df.wyear.values.reshape(-1, 1)
-    y = reg_df[[colname]]
-    model.fit(X, y)
-    lm_pred = model.predict(X_pred)
-    anom_df['fit'] = lm_pred
-    anom_df[colname] = anom_df[colname] - anom_df['fit']
-
-anom_df = anom_df.drop(labels='fit', axis=1)
+    # Station Anomalies
+    anom_df = pd.DataFrame(all_df)
+    colnames = anom_df.drop(labels='wyear', axis=1).columns
 
 
-# Create the big Regression DataFrame
+    for colname in colnames:
+        # colname = colnames[0]
+        model = skl_lm.LinearRegression()
+        # Handle the NA problem
+        reg_df = anom_df[['wyear', colname]].pipe(lambda df: df.dropna())
+        X = reg_df.wyear.values.reshape(-1, 1)
+        X_pred = anom_df.wyear.values.reshape(-1, 1)
+        y = reg_df[[colname]]
+        model.fit(X, y)
+        lm_pred = model.predict(X_pred)
+        anom_df['fit'] = lm_pred
+        anom_df[colname] = anom_df[colname] - anom_df['fit']
 
-dat_df = pd.merge(anom_df, X_df, on='wyear')
+    anom_df = anom_df.drop(labels='fit', axis=1)
 
 
-# Regularization / Lasso Model Selection
+    # Create the big Regression DataFrame
 
-def predOneStation(target, dat_df):
-    # target = 'ZURICH (TOWN/'
-    # 'target ~ PC1_ci_10 + PC2_z70_10 + PC3_sst_9' # Wang
-    predNames = np.array(['PC1_z70_9',
-     'PC2_z70_9',
-     'PC3_z70_9',
-     'PC1_ci_9',
-     'PC2_ci_9',
-     'PC3_ci_9',
-     'PC1_sst_9',
-     'PC2_sst_9',
-     'PC3_sst_9', 
-     'PC1_z70_10',  
-     'PC2_z70_10', 
-     'PC3_z70_10',
-     'PC1_ci_10', 
-     'PC2_ci_10',
-     'PC3_ci_10',
-     'PC1_sst_10',
-     'PC2_sst_10',
-     'PC3_sst_10',
-     'PC1_sstna_10','PC2_sstna_10','PC3_sstna_10',
-                          'Nino_9', 'Nino_10'])
-    #ipdb.set_trace()
-    dat_df = dat_df[dat_df[target].notnull()] # eliminate NA rows
-    X = dat_df[predNames].as_matrix()
-    # Target Variables:
-    y = dat_df[[target]]
-    y = np.ravel(y)
-    # Before applying the Lasso, it is necessary to standardize the predictor
-    scaler = StandardScaler()
-    scaler.fit(X)
-    X_stan = scaler.transform(X)
-    # In order to find the optimal penalty parameter alpha,
-    # use Cross-validated Lasso
-    modlcv = LassoCV(cv=3, n_alphas=10000, max_iter=10000)
-    modlcv.fit(X_stan, y)
-    alpha = modlcv.alpha_
+    dat_df = pd.merge(anom_df, X_df, on='wyear')
 
-    # Name Of the non-null coefficients:
-    # 'target ~ PC1_ci_10 + PC2_z70_10 + PC3_sst_9' # Wang
-    ind = np.array(list(map(lambda x: float(x)!=0, modlcv.coef_)))
-    importance_df = pd.DataFrame({'pred': predNames[ind], 
-                                  'coef': modlcv.coef_[ind]})
-    importance_df = importance_df.assign(absCoef=np.absolute(importance_df.coef))
-    # According to the Lasso, the 3 strongest predictors are:
-    # PC1_ci_10, PC2_z70_10, PC3_z70_9 
-    importance_df.sort_values('absCoef', ascending=False)
-    res = dict({'R2': modlcv.score(X_stan, y), 'nyears_used': dat_df.shape[0],
-                'alpha': alpha, 'importance_df': importance_df})
-    return(res)
 
-#z = predOneStation(target='PAYERNE', dat_df=dat_df)
+    # Regularization / Lasso Model Selection
 
-#z = map(predOneStation, sta_df.name)
+    def predOneStation(target, dat_df):
+        # target = 'ZURICH (TOWN/'
+        # 'target ~ PC1_ci_10 + PC2_z70_10 + PC3_sst_9' # Wang
+        predNames = np.array(['PC1_z70_9',
+                              'PC2_z70_9',
+                              'PC3_z70_9',
+                              'PC1_ci_9',
+                              'PC2_ci_9',
+                              'PC3_ci_9',
+                              'PC1_sst_9',
+                              'PC2_sst_9',
+                              'PC3_sst_9', 
+                              'PC1_z70_10',  
+                              'PC2_z70_10', 
+                              'PC3_z70_10',
+                              'PC1_ci_10', 
+                              'PC2_ci_10',
+                              'PC3_ci_10',
+                              'PC1_sst_10',
+                              'PC2_sst_10',
+                              'PC3_sst_10',
+                              'PC1_sstna_10','PC2_sstna_10','PC3_sstna_10',
+                              'Nino_9', 'Nino_10'])
+        #ipdb.set_trace()
+        dat_df = dat_df[dat_df[target].notnull()] # eliminate NA rows
+        X = dat_df[predNames].as_matrix()
+        # Target Variables:
+        y = dat_df[[target]]
+        y = np.ravel(y)
+        # Before applying the Lasso, it is necessary to standardize the predictor
+        scaler = StandardScaler()
+        scaler.fit(X)
+        X_stan = scaler.transform(X)
+        # In order to find the optimal penalty parameter alpha,
+        # use Cross-validated Lasso
+        modlcv = LassoCV(cv=3, n_alphas=10000, max_iter=10000)
+        modlcv.fit(X_stan, y)
+        alpha = modlcv.alpha_
 
-for sta_name in colnames:
-    z = predOneStation(target=sta_name, dat_df=dat_df)
-    if z['R2'] > 0.5:
-        logging.info('                                      ')
-        logging.info('-------------HIT for "%s" -------------------' % (sta_name))
+        # Name Of the non-null coefficients:
+        # 'target ~ PC1_ci_10 + PC2_z70_10 + PC3_sst_9' # Wang
+        ind = np.array(list(map(lambda x: float(x)!=0, modlcv.coef_)))
+        importance_df = pd.DataFrame({'pred': predNames[ind], 
+                                      'coef': modlcv.coef_[ind]})
+        importance_df = importance_df.assign(absCoef=np.absolute(importance_df.coef))
+        # According to the Lasso, the 3 strongest predictors are:
+        # PC1_ci_10, PC2_z70_10, PC3_z70_9 
+        importance_df.sort_values('absCoef', ascending=False)
+        res = dict({'R2': modlcv.score(X_stan, y), 'nyears_used': dat_df.shape[0],
+                    'alpha': alpha, 'importance_df': importance_df})
+        return(res)
 
-        
-        logging.info(sta_df.query('name == @sta_name'))
-        logging.info('%s %s' % (sta_name, z))
+    #z = predOneStation(target='0-PAYERNE', dat_df=dat_df)
+    #z = map(predOneStation, sta_df.name)
+
+    # We need to relate a station name to a station id in order
+    # to extract metadata as longitude and latitude.
+    sta_mapping_df = pd.DataFrame({'station_id': all_df0.columns[1:],
+                                   'name_2': all_df.columns[1:-1]})
+
+    sta_mapping_df = sta_mapping_df.merge(right=sta_df, on='station_id')
+
+    for sta_name in colnames:
+        z = predOneStation(target=sta_name, dat_df=dat_df)
+        if z['R2'] > 0.5:
+            logging.info('                                      ')
+            logging.info('-------------HIT for "%s" -------------------' % (sta_name))
+            logging.info('%s %s' % (sta_name, z))
+            metadata = sta_mapping_df.query('name_2 == @sta_name').reset_index(drop=True)
+            pred_log = open(result_file, 'w')
+            mssg = '%s,%s,%s,%s,%s,%s,%s,%s,%s\n' % (metadata.country[0],
+                                                     metadata.name_2[0],
+                                                     metadata.station_id[0],
+                                                     z['R2'],
+                                                     z['nyears_used'],
+                                                     metadata['loc'][0]['coordinates'][0],
+                                                     metadata['loc'][0]['coordinates'][1],
+                                                     metadata['elev'][0],
+                                                     metadata['landcover'][0])
+            pred_log.write(mssg)
+            pred_log.close()
 
 logging.info('                      ')
 logging.info("Prediction job done.")
