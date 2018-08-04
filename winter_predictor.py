@@ -1,5 +1,5 @@
 # This file aims to contain all important code
-# in the object-oriented module format
+# in object-oriented style
 
 import numpy as np
 import logging
@@ -18,13 +18,13 @@ class Predictor:
     ''' This class is about gathering all the predictors as defined by
     Wang et al. (2017). The central output is a DataFrame looking like:
     |WinterYear | PC1_predA_month1 | ... | PC3_predZ_month2|
-    with month1 and month2 being November and December generally '''
+    Generally, 'month1' and 'month2' are November and December'''
 
     def __init__(self):
         self.con_anom = None,  # ERAINT anomalies collection
         self.con_grid = None,  # ERAINT grid collection
-        self.anom_df = pd.DataFrame() # anomalies for a set of grid cells
-        self.X_df = pd.DataFrame() # final DataFrame of predictors
+        self.anom_df = pd.DataFrame()  # anomalies for a set of grid cells
+        self.X_df = pd.DataFrame()  # final DataFrame of predictors
 
     def initializeCon(self, ERA_vers='lores'):
         ''' Create the connections to the MongoDB collections '''
@@ -32,7 +32,7 @@ class Predictor:
 
     @staticmethod
     def _queryAnom(variable, grid_df):
-        ''' Query anomalies for a given variable and for 
+        ''' Query anomalies for a given variable and for
         a set of grid cells '''
         # self.anom_df = anom_df
         pass
@@ -44,7 +44,7 @@ class Predictor:
         pass
 
     def _getGridIds(self, aboveLat=None, polygon=None):
-        ''' Get the set of all ERAINT grid cells either 
+        ''' Get the set of all ERAINT grid cells either
         (i) above a given latitude or (ii) within a given polygon '''
         # This funtion replaces: queryGrids(above) and getGridIds(polygon) 
         con_grid = self.con_grid
@@ -118,28 +118,67 @@ class Predictor:
         sep_df = createMondf(this_mon=9, scores_df=scores_df)
         oct_df = createMondf(this_mon=10, scores_df=scores_df)
         X_df = pd.merge(sep_df, oct_df)
+
+        # Before applying the Lasso, it is necessary
+        # to standardize the predictor ("scander" stuff here)
+        # (...)
         self.X_df = X_df
 
+
 class StationPrediction():
-    ''' Performs predictions for a single station. The output is 
+    ''' Performs predictions for a single station. The output is
     a prediction for the average temperature value over the target months '''
     
     def __init__(self, station_id, target_months, X_df):
-        self.station_id = station_id # GHCN id
+        self.station_id = station_id  # GHCN id
         self.target_months = target_months
-        self.station_name = Null # Human-readable station name
-        self.X_df = X_df # Predictor DataFrame
-        self.data_df = pd.DataFrame() # station data for the target months
+        self.station_name = Null  # Human-readable station name
+        self.X_df = X_df  # Predictor DataFrame
+        self.data_df = pd.DataFrame()  # aggregated data over the target months
+        self.anom_df = pd.DataFrame()  # station anomalies to be predicted
+        self.fit  # the 'fit' object itself
+        self.nyears_used  # number of years used for the fit
+        self.importance_df = pd.DataFrame()  # what are the dominant pred var?
+        self.R2 = Null  # performance of the fit expressed as R2
+        self.predictedAnomaly = Null  # the final prediction for the unobserved year
         
-
     def queryData(self, mon):
         ''' Query station data for an array of months.
-        E.g. : queryData(mon=['12', '1']) for December and January data '''
+        The final result is an *single* averaged value over
+        the selected months, for each station.
+        E.g. : queryData(mon=['12', '1']) for December and January data.'''
+        
         station_id = self.station_id
 
         self.data_df = data_df
         pass
 
     def getAnomalies(self):
+        ''' The anomalies stands in the foreground, not the bare data.
+        Hence, we calculate the yearly anomalies from long-term mean.'''
+        data_df = self.data_df
+
+        # ...
+        self.anom_df = anom_df
+        pass
         
+    def fitAnomalies(self, X_df):
+        anom_df = self.anom_df
+        # ...do the Lasso regression ...
+
+        self.fit = fit  # the entire 'fit' object
+        self.R2 = R2
+        self.importance_df = importance_df
+        self.nyears_used = nyears_used
+        pass
+
+    def predictFutureAnomalies(self, newX_df):
+        # newX_df are the *new* predictor values
+        fit = self.fit
+        predictedAnomaly = fit(newX_df)  # something like that
+        self.predictedAnomaly = predictedAnomaly
+        
+        
+    
+    
     

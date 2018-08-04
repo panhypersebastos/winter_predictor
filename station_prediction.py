@@ -3,6 +3,10 @@
 # This is the operational version of the juyper notebook
 # called "station_prediction.ipnb"
 
+# As soon as the file "winter_predictor.py" is ready
+# with its object-oriented structure, the present code
+# will be deprecated.
+
 # It reads input.csv containing the input countries to
 # search for predictible stations.
 
