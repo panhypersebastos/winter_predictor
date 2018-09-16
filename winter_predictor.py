@@ -51,7 +51,7 @@ class Predictor:
         ''' Query anomalies for a given variable and for
         a set of grid cells '''
 
-        con_anom = self.con_anom
+        con_anom = self.con_anom[0]
         grid_ids = grid_df.id_grid.values
         res = con_anom.aggregate(pipeline=[
             {"$project": {"id_grid": 1,
@@ -71,7 +71,7 @@ class Predictor:
         a set of grid cells.
         This is the former "queryScores" function.
         '''
-        anom_df = Predictor._queryAnom(variable, grid_df)
+        anom_df = Predictor._queryAnom(self, variable, grid_df)
         X_df = anom_df.pivot(index='date',
                              columns='id_grid',
                              values=variable)
@@ -140,7 +140,7 @@ class Predictor:
         ''' Get the set of all ERAINT grid cells either
         (i) above a given latitude or (ii) within a given polygon '''
         # This funtion replaces: queryGrids(above) and getGridIds(polygon)
-        con_grid = self.con_grid
+        con_grid = self.con_grid[0]
 
         if (aboveLat is not None):
             geo_qry = Predictor._createQueryAboveLat(aboveLat=aboveLat)
@@ -191,7 +191,7 @@ class Predictor:
         return z
     
     @staticmethod
-    def createMondf(this_mon, scores_df):
+    def _createMondf(this_mon, scores_df):
         mon_df = scores_df.query('month == @this_mon')
         mon_df.columns = list(
             map(lambda x: Predictor._renCol(x, mon=this_mon),
@@ -203,14 +203,14 @@ class Predictor:
         ''' This is the main function '''
 
         # Get grid cell ids above 20°N and 20°S
-        grid_df_20N = Predictor._getGridIds(aboveLat=20)
-        grid_df_20S = Predictor._getGridIds(aboveLat=-20)
+        grid_df_20N = Predictor._getGridIds(self, aboveLat=20)
+        grid_df_20S = Predictor._getGridIds(self, aboveLat=-20)
 
         # Get grid cell ids within the Northern Atlantic region.
         poly_NAtlantic = [list(reversed(
             [[-100, 0], [-100, 45], [-100, 89], [-40, 89],
              [20, 89], [20, 45], [20, 0], [-40, 0], [-100, 0]]))]
-        grid_df_NAtlantic = Predictor._getGridIds(polygon=poly_NAtlantic)
+        grid_df_NAtlantic = Predictor._getGridIds(self, polygon=poly_NAtlantic)
 
         # Work with the Nino Index:
         # No need to compute PCA as Nino index is already
@@ -221,20 +221,20 @@ class Predictor:
         # the equator five degrees of latitude on either side (Wikipedia)
         poly_Nino = [list(reversed([ [-170,-5], [-170,5],[-120,5],
                                      [-120,-5], [-170,-5]]))]
-        grid_df_Nino = Predictor._getGridIds(polygon=poly_Nino)
-        anom_sst_df = Predictor._queryAnom(variable='sst',
+        grid_df_Nino = Predictor._getGridIds(self, polygon=poly_Nino)
+        anom_sst_df = Predictor._queryAnom(self, variable='sst',
                                            grid_df=grid_df_Nino)
         nino_df0 = anom_sst_df[['date', 'sst']].groupby('date').mean().\
                    reset_index().rename(columns={'sst': 'Nino'})
         
         # Get the PCA scores
-        scores_z70 = Predictor._getPCAscores(variable='z70',
+        scores_z70 = Predictor._getPCAscores(self, variable='z70',
                                              grid_df=grid_df_20N)
-        scores_ci = Predictor._getPCAscores(variable='ci',
+        scores_ci = Predictor._getPCAscores(self, variable='ci',
                                             grid_df=grid_df_20N)
-        scores_sst = Predictor._getPCAscores(variable='sst',
+        scores_sst = Predictor._getPCAscores(self, variable='sst',
                                              grid_df=grid_df_20S)
-        scores_sst_NAtl = Predictor._getPCAscores(variable='sst',
+        scores_sst_NAtl = Predictor._getPCAscores(self, variable='sst',
                                                   grid_df=grid_df_NAtlantic)
         scores_sst_NAtl = scores_sst_NAtl.rename(
             columns={"PC1_sst": "PC1_sstna",
@@ -274,38 +274,73 @@ class Predictor:
 
 
 class StationPrediction():
-    ''' Performs predictions for a single station. The output is
-    a prediction for the average temperature value over the target months '''
-    
+    '''
+    Performs predictions for a single station. The output is
+    a prediction for the average temperature value over the target months.
+    '''
+
     def __init__(self, station_id, target_months, X_df):
         self.station_id = station_id  # GHCN id
+        cons = StationPrediction._initializeStaCon()
+        col_sta = cons['col_sta']
+        sta_doc = col_sta.find_one(filter={'station_id': station_id})
+        self.metadata = sta_doc
+        self.station_name = sta_doc['name']  # Human-readable station name
         self.target_months = target_months
-        self.station_name = Null  # Human-readable station name
         self.X_df = X_df  # Predictor DataFrame
         self.data_df = pd.DataFrame()  # aggregated data over the target months
         self.anom_df = pd.DataFrame()  # station anomalies to be predicted
-        self.fit  # the 'fit' object itself
-        self.nyears_used  # number of years used for the fit
+        self.fit = None  # the 'fit' object itself
+        self.nyears_used = None  # number of years used for the fit
         self.importance_df = pd.DataFrame()  # what are the dominant pred var?
-        self.R2 = Null  # performance of the fit expressed as R2
-        self.predictedAnomaly = Null  # the final prediction for the unobserved year
-        
-    def queryData(self, mon):
-        ''' Query station data for an array of months.
-        The final result is an *single* averaged value over
-        the selected months, for each station.
-        E.g. : queryData(mon=['12', '1']) for December and January data.'''
-        
+        self.R2 = None  # performance of the fit expressed as R2
+        self.predictedAnomaly = None  # the final prediction for the unobserved year
+
+    @staticmethod
+    def _initializeStaCon():
+        mongo_host_local = 'mongodb://localhost:27017/'
+        mg = pymongo.MongoClient(mongo_host_local)
+        db = mg.GHCN
+        return({'col_sta': db.stations, 'col_dat': db.data})
+
+    def queryData(self):
+        '''
+        Query station data and return the average over the target_months.
+        '''
+
         station_id = self.station_id
+        mon = self.target_months
+        cons = StationPrediction._initializeStaCon()
+        col_dat = cons['col_dat']
+        dat_df = pd.DataFrame(
+            list(col_dat.find(filter={'station_id': station_id}))).\
+            pipe(lambda df: df[['1', '2', '3', '4', '5', '6',
+                                '7', '8', '9', '10', '11', '12', 'year']]).\
+                                pipe(lambda df: df.query('year >= 1979'))
+        w_df = dat_df[['year', '1', '2', '12']]
+        # Reformat data
+        dec_df = w_df[['year', '12']]
+        dec_df = dec_df.assign(wyear=dec_df.year+1).\
+                 pipe(lambda df: df[['wyear', '12']])
+        jf_df = w_df[['year', '1', '2']].\
+                pipe(lambda df: df.rename(columns={'year':'wyear'}))
+        winter_df = pd.merge(dec_df, jf_df, on='wyear')
+        # Do the aggregation for december-february risk period
+        risk_df = winter_df
+        risk_df['ave'] = risk_df[mon].apply(func=np.mean, axis=1)
+        risk_df = risk_df[['wyear', 'ave']].\
+                  pipe(lambda df: df.rename(columns={'ave': station_id}))
+        self.data_df = risk_df
 
-        self.data_df = data_df
-        pass
+    def getAnomalies(self, minNyear=30):
+        '''
+        The anomalies stands in the foreground, not the bare data.
+        Hence, we calculate the yearly anomalies from long-term mean.
+        At least 'minNyear' years of data observation should be non-NA.
 
-    def getAnomalies(self):
-        ''' The anomalies stands in the foreground, not the bare data.
-        Hence, we calculate the yearly anomalies from long-term mean.'''
+        '''
+        # HERE latest position !!! 2018-09-16
         data_df = self.data_df
-
         # ...
         self.anom_df = anom_df
         pass
