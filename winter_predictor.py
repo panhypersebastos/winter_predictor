@@ -294,6 +294,7 @@ class StationPrediction():
         self.nyears_used = None  # number of years used for the fit
         self.importance_df = pd.DataFrame()  # what are the dominant pred var?
         self.R2 = None  # performance of the fit expressed as R2
+        self.predNames = None  # names of the predictors used
         self.predictedAnomaly = None  # the final prediction for the unobserved year
 
     @staticmethod
@@ -332,34 +333,88 @@ class StationPrediction():
                   pipe(lambda df: df.rename(columns={'ave': station_id}))
         self.data_df = risk_df
 
-    def getAnomalies(self, minNyear=30):
+    def getAnomalies(self):#, minNyear=30):
         '''
         The anomalies stands in the foreground, not the bare data.
         Hence, we calculate the yearly anomalies from long-term mean.
-        At least 'minNyear' years of data observation should be non-NA.
+        # !! removed: At least 'minNyear' years of data observation should be non-NA.
 
         '''
-        # HERE latest position !!! 2018-09-16
         data_df = self.data_df
         # ...
+        # Station Anomalies
+        anom_df = pd.DataFrame(data_df)
+        colnames = anom_df.drop(labels='wyear', axis=1).columns
+
+        for colname in colnames:
+            # Loop over colnames superfluous
+            # since only one time series. Let's keep it anyway.
+            model = skl_lm.LinearRegression()
+            # Handle the NA problem
+            reg_df = anom_df[['wyear', colname]].pipe(lambda df: df.dropna())
+            X = reg_df.wyear.values.reshape(-1, 1)
+            X_pred = anom_df.wyear.values.reshape(-1, 1)
+            y = reg_df[[colname]]
+            model.fit(X, y)
+            lm_pred = model.predict(X_pred)
+            anom_df['fit'] = lm_pred
+            anom_df[colname] = anom_df[colname] - anom_df['fit']
+
+        anom_df = anom_df.drop(labels='fit', axis=1)
         self.anom_df = anom_df
-        pass
         
     def fitAnomalies(self, X_df):
         anom_df = self.anom_df
-        # ...do the Lasso regression ...
+        station_id = self.station_id
+        
+        # Create one large Regression DataFrame
+        dat_df = pd.merge(anom_df, X_df, on='wyear')
 
-        self.fit = fit  # the entire 'fit' object
-        self.R2 = R2
+        predNames = X_df.columns
+
+        dat_df = dat_df[dat_df[station_id].notnull()]  # eliminate NA rows
+        X = dat_df[predNames].as_matrix()
+        # Target Variables:
+        y = dat_df[[station_id]]
+        y = np.ravel(y)
+        # Before applying the Lasso, it is necessary
+        # to standardize the predictor
+        scaler = StandardScaler()
+        scaler.fit(X)
+        X_stan = scaler.transform(X)
+        # In order to find the optimal penalty parameter alpha,
+        # use Cross-validated Lasso
+        modlcv = LassoCV(cv=3, n_alphas=10000, max_iter=10000)
+        modlcv.fit(X_stan, y)
+
+        # Name Of the non-null coefficients:
+        ind = np.array(list(map(lambda x: float(x)!=0, modlcv.coef_)))
+        importance_df = pd.DataFrame({'pred': predNames[ind], 
+                                      'coef': modlcv.coef_[ind]})
+        importance_df = importance_df.assign(
+            absCoef=np.absolute(importance_df.coef))
+        importance_df.sort_values('absCoef', ascending=False)
+
+        self.fit = modlcv  # the entire 'fit' object
+        self.R2 = modlcv.score(X_stan, y)
         self.importance_df = importance_df
-        self.nyears_used = nyears_used
-        pass
+        self.nyears_used = dat_df.shape[0]
+        self.predNames = predNames
 
     def predictFutureAnomalies(self, newX_df):
         # newX_df are the *new* predictor values
         fit = self.fit
         predictedAnomaly = fit(newX_df)  # something like that
         self.predictedAnomaly = predictedAnomaly
+
+        # HERE !!! last point David 2018-09-30
+        X_new0 = PRED.X_df[STA.predNames].as_matrix()
+        # Before applying the Lasso prediction, it is necessary
+        # to standardize the predictor
+        scaler = StandardScaler()
+        scaler.fit(X_new0)
+        X_new = scaler.transform(X_new0)
+        
         
         
     
