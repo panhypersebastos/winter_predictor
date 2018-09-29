@@ -266,10 +266,6 @@ class Predictor:
         oct_df = Predictor._createMondf(this_mon=10, scores_df=scores_df)
         X_df = pd.merge(sep_df, oct_df)
 
-        # Before applying the Lasso, it is necessary
-        # to standardize the predictor ("scander" stuff here)
-        # (...)
-        # HERE !!!!!!!!!!!!!!!!
         self.X_df = X_df
 
 
@@ -404,19 +400,17 @@ class StationPrediction():
     def predictFutureAnomalies(self, newX_df):
         # newX_df are the *new* predictor values
         fit = self.fit
+        predNames = self.predNames
         predictedAnomaly = fit(newX_df)  # something like that
-        self.predictedAnomaly = predictedAnomaly
 
-        # HERE !!! last point David 2018-09-30
-        X_new0 = PRED.X_df[STA.predNames].as_matrix()
+        newX_0 = newX_df[predNames].as_matrix()
         # Before applying the Lasso prediction, it is necessary
         # to standardize the predictor
         scaler = StandardScaler()
-        scaler.fit(X_new0)
-        X_new = scaler.transform(X_new0)
+        scaler.fit(newX_0)
+        newX = scaler.transform(newX_0)
+        predictedAnomaly = fit.predict(X=newX)
+        # HERE !!! last point David 2018-09-30
+        self.predictedAnomaly = predictedAnomaly
+
         
-        
-        
-    
-    
-    
