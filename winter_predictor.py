@@ -364,7 +364,7 @@ class StationPrediction():
         station_id = self.station_id
         
         # Create one large Regression DataFrame
-        dat_df = pd.merge(anom_df, X_df, on='wyear')
+        dat_df = pd.merge(anom_df, X_df, on='wyear', how='inner')
 
         predNames = X_df.columns
 
