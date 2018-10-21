@@ -292,6 +292,7 @@ class StationPrediction():
         self.R2 = None  # performance of the fit expressed as R2
         self.predNames = None  # names of the predictors used
         self.predictedAnomaly = None  # the final prediction for the unobserved year
+        self.detend_fit = None  # contains the long-term trend
 
     @staticmethod
     def _initializeStaCon():
@@ -333,8 +334,8 @@ class StationPrediction():
         '''
         The anomalies stands in the foreground, not the bare data.
         Hence, we calculate the yearly anomalies from long-term mean.
-        # !! removed: At least 'minNyear' years of data observation should be non-NA.
-
+        # !! removed: At least 'minNyear' years of data observation
+        should be non-NA.
         '''
         data_df = self.data_df
         # ...
@@ -342,22 +343,23 @@ class StationPrediction():
         anom_df = pd.DataFrame(data_df)
         colnames = anom_df.drop(labels='wyear', axis=1).columns
 
-        for colname in colnames:
-            # Loop over colnames superfluous
-            # since only one time series. Let's keep it anyway.
-            model = skl_lm.LinearRegression()
-            # Handle the NA problem
-            reg_df = anom_df[['wyear', colname]].pipe(lambda df: df.dropna())
-            X = reg_df.wyear.values.reshape(-1, 1)
-            X_pred = anom_df.wyear.values.reshape(-1, 1)
-            y = reg_df[[colname]]
-            model.fit(X, y)
-            lm_pred = model.predict(X_pred)
-            anom_df['fit'] = lm_pred
-            anom_df[colname] = anom_df[colname] - anom_df['fit']
-
+        # Loop over colnames superfluous
+        # since only one time series. Let's keep it anyway.
+        # for colname in colnames:
+        colname = colnames[0]
+        model = skl_lm.LinearRegression()
+        # Handle the NA problem
+        reg_df = anom_df[['wyear', colname]].pipe(lambda df: df.dropna())
+        X = reg_df.wyear.values.reshape(-1, 1)
+        X_pred = anom_df.wyear.values.reshape(-1, 1)
+        y = reg_df[[colname]]
+        model.fit(X, y)
+        lm_pred = model.predict(X_pred)
+        anom_df['fit'] = lm_pred
+        anom_df[colname] = anom_df[colname] - anom_df['fit']
         anom_df = anom_df.drop(labels='fit', axis=1)
         self.anom_df = anom_df
+        self.detrend_fit = model
         
     def fitAnomalies(self, X_df):
         anom_df = self.anom_df
@@ -401,8 +403,6 @@ class StationPrediction():
         # newX_df are the *new* predictor values
         fit = self.fit
         predNames = self.predNames
-        predictedAnomaly = fit(newX_df)  # something like that
-
         newX_0 = newX_df[predNames].as_matrix()
         # Before applying the Lasso prediction, it is necessary
         # to standardize the predictor
@@ -410,7 +410,4 @@ class StationPrediction():
         scaler.fit(newX_0)
         newX = scaler.transform(newX_0)
         predictedAnomaly = fit.predict(X=newX)
-        # HERE !!! last point David 2018-09-30
         self.predictedAnomaly = predictedAnomaly
-
-        
