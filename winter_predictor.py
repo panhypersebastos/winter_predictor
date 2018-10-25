@@ -355,9 +355,10 @@ class StationPrediction():
         y = reg_df[[colname]]
         model.fit(X, y)
         lm_pred = model.predict(X_pred)
-        anom_df['fit'] = lm_pred
-        anom_df[colname] = anom_df[colname] - anom_df['fit']
-        anom_df = anom_df.drop(labels='fit', axis=1)
+        anom_df['xbar'] = lm_pred
+        anom_df = anom_df.rename(columns={colname: 'x'})
+        anom_df['anom'] = anom_df['x'] - anom_df['xbar']
+        # anom_df = anom_df.drop(labels='fit', axis=1)
         self.anom_df = anom_df
         self.detrend_fit = model
         
@@ -366,14 +367,15 @@ class StationPrediction():
         station_id = self.station_id
         
         # Create one large Regression DataFrame
+        anom_df = anom_df[['wyear', 'anom']]
         dat_df = pd.merge(anom_df, X_df, on='wyear', how='inner')
 
         predNames = X_df.columns
 
-        dat_df = dat_df[dat_df[station_id].notnull()]  # eliminate NA rows
+        dat_df = dat_df[dat_df['anom'].notnull()]  # eliminate NA rows
         X = dat_df[predNames].as_matrix()
         # Target Variables:
-        y = dat_df[[station_id]]
+        y = dat_df[['anom']]
         y = np.ravel(y)
         # Before applying the Lasso, it is necessary
         # to standardize the predictor
