@@ -10,6 +10,7 @@ import sklearn.linear_model as skl_lm
 from functools import reduce
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LassoCV
+from sklearn.metrics import mean_squared_error, r2_score
 import os
 import sys
 
@@ -400,6 +401,34 @@ class StationPrediction():
         self.importance_df = importance_df
         self.nyears_used = dat_df.shape[0]
         self.predNames = predNames
+
+    def quickfitAnomalies(self, X_df):
+        '''
+        Quick linear regression. If the R2 is convincing,
+        then the Lasso is done in a further step with the
+        function 'fitAnomalies'
+        '''
+        anom_df = self.anom_df
+        station_id = self.station_id
+        
+        # Create one large Regression DataFrame
+        anom_df = anom_df[['wyear', 'anom']]
+        dat_df = pd.merge(anom_df, X_df, on='wyear', how='inner')
+
+        predNames = ['PC1_z70_9', 'PC1_z70_10',
+                     'PC1_ci_9', 'PC1_ci_10']
+
+        dat_df = dat_df[dat_df['anom'].notnull()]  # eliminate NA rows
+        X = dat_df[predNames].as_matrix()
+        # Target Variables:
+        y = dat_df[['anom']]
+        y = np.ravel(y)
+        regr = skl_lm.LinearRegression()
+        regr.fit(X, y)
+        y_pred = regr.predict(X)
+        r2 = r2_score(y, y_pred)
+        self.nyears_used = dat_df.shape[0]
+        self.R2_prelim = r2
 
     def predictFutureAnomalies(self, newX_df):
         # newX_df are the *new* predictor values
