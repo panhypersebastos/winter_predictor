@@ -1,30 +1,23 @@
-# Last changes: dmasson 2017-10-05
-# INFO:
-# This code insert new (or even historical) monthly ERA-int data into MongoDB
+'''
+This code inserts new (or historical) monthly ERA-int data into MongoDB.
+To run this code in a BATCH mode, enter the following command in the shell:
+'''
 
-# To run this code in a BATCH mode, enter the following command in the shell:
-# python /home/dmasson/CloudStation/code/winter_predictor/era_interim_insert.py & 
-
-from netCDF4 import Dataset, netcdftime, num2date, date2num, date2index
-from datetime import datetime, timedelta, date
-import pytz
+from netCDF4 import Dataset, num2date, date2index
+from datetime import datetime, date
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.basemap import Basemap, addcyclic, shiftgrid
+from mpl_toolkits.basemap import shiftgrid
 import pymongo
-from pymongo import IndexModel, ASCENDING, DESCENDING
-from pprint import pprint
 from os import listdir
 import os
 import pandas as pd
 import fnmatch
 import logging
 from joblib import Parallel, delayed
-import multiprocessing
-from functools import partial
+import sys
 
 num_cores = 3  # multiprocessing.cpu_count()
-ERA_vers = 'lores' # or 'hires'
+ERA_vers = 'lores'  # or 'hires'
 
 if (ERA_vers == 'hires'):
     col_dat = 'ERAINT_monthly'
@@ -51,7 +44,7 @@ files00 = listdir(downloadDir)
 files = fnmatch.filter(files00, 'era-int_file01*.nc')
 files.sort()
 
-prefixes = list(map(lambda x: 'era-int_file%s_%s_' % (x,resolution),
+prefixes = list(map(lambda x: 'era-int_file%s_%s_' % (x, resolution),
                     ['01', '02', '03']))
 postfixes = list(map(lambda x: x[19:], files))
 
@@ -64,12 +57,10 @@ files_df = pd.DataFrame(
 
 # What dates are already ingested in MongoDB ?
 # MongoDB:
-import sys
-sys.path.insert(0, '/home/production/dev/')
 
+sys.path.insert(0, '/home/production/dev/')
 mongo_host_local = 'mongodb://localhost:27017/'
 mg = pymongo.MongoClient(mongo_host_local)
-
 db = mg.ECMWF
 con_data = db[col_dat]
 datesInMongo = con_data.distinct('date')
@@ -77,11 +68,14 @@ datesInMongo = con_data.distinct('date')
 
 def doIndexing():
     # Add indexes
-    index1 = pymongo.IndexModel([("date", pymongo.DESCENDING)], name="date_-1")
+    index1 = pymongo.IndexModel([("date", pymongo.DESCENDING)],
+                                name="date_-1")
     index2 = pymongo.IndexModel(
-        [("id_grid", pymongo.ASCENDING), ("date", pymongo.DESCENDING)], name="id_grid_1_date_-1")
+        [("id_grid", pymongo.ASCENDING), ("date", pymongo.DESCENDING)],
+        name="id_grid_1_date_-1")
     index3 = pymongo.IndexModel(
-        [("year", pymongo.ASCENDING), ("id_grid", pymongo.ASCENDING)], name="year_1_id_grid_1")
+        [("year", pymongo.ASCENDING), ("id_grid", pymongo.ASCENDING)],
+        name="year_1_id_grid_1")
     mongo_host_local = 'mongodb://localhost:27017/'
     con = pymongo.MongoClient(mongo_host_local)
     db = con.ECMWF
@@ -94,7 +88,6 @@ def insertToMongo(vars):
     this_day = vars['this_day']
     lons = vars['lons']
     lats = vars['lats']
-    
     DAT = np.array([vars['ci'],   # 0
                     vars['sst'],  # 1
                     vars['istl1'],# 2
@@ -122,7 +115,10 @@ def insertToMongo(vars):
         lon0=180., datain=DAT, lonsin=lons, start=False)
     lon, lat = np.meshgrid(lons_shift, lats)
     this_dayhh = datetime.strptime(
-        "%s-%s-%sT00:00:00Z" % (this_day.year, this_day.month, this_day.day), "%Y-%m-%dT%H:%M:%SZ")
+        "%s-%s-%sT00:00:00Z" % (this_day.year,
+                                this_day.month,
+                                this_day.day),
+        "%Y-%m-%dT%H:%M:%SZ")
     this_year = this_dayhh.year
 
     # Insert into MongoDB

@@ -1,13 +1,22 @@
-from datetime import datetime, date
-import numpy as np
+from datetime import datetime
 import itertools
 import pandas as pd
 
-def getMultivarMon(from_day, to_day, downloadDir, server, resolution):
+
+def getMultivarMon(from_day,
+                   to_day,
+                   downloadDir,
+                   server,
+                   resolution):
     # get MULTIPLE VARIABLES :
-    filename01 = 'era-int_file01_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
-    filename02 = 'era-int_file02_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
-    filename03 = 'era-int_file03_%s_%s_to_%s.nc' % (resolution, from_day, to_day)
+    filename01 = 'era-int_file01_%s_%s_to_%s.nc' % (resolution,
+                                                    from_day,
+                                                    to_day)
+    filename02 = 'era-int_file02_%s_%s_to_%s.nc' % (resolution,
+                                                    from_day,
+                                                    to_day)
+    filename03 = 'era-int_file03_%s_%s_to_%s.nc' % (resolution, from_day,
+                                                    to_day)
     
     yrs = list(range(from_day.year, to_day.year+1))
     mts = list(['01-01', '02-01', '03-01', '04-01', '05-01', '06-01', '07-01',
@@ -15,13 +24,10 @@ def getMultivarMon(from_day, to_day, downloadDir, server, resolution):
     comb = pd.DataFrame(list(itertools.product(yrs, mts)))
     dts = pd.DataFrame({'yrs': comb[0], 'mts': comb[1]})
     dts['combi'] = dts.yrs.astype(str).str.cat(dts.mts.astype(str), sep='-')
-    dts = dts.assign(date=dts.combi.apply(lambda x:
-                                           datetime.strptime(x, '%Y-%m-%d')))
-    dts = dts.assign(datestr=dts.date.apply(lambda x:
-                                            '%s%s%s' %
-                                            (x.year,
-                                             '%02d' % x.month,
-                                             '%02d' % x.day)))
+    dts = dts.assign(date=dts.combi.apply(
+        lambda x: datetime.strptime(x, '%Y-%m-%d')))
+    dts = dts.assign(datestr=dts.date.apply(
+        lambda x: '%s%s%s' % (x.year, '%02d' % x.month, '%02d' % x.day)))
     dts = dts.query('date<=@to_day')
     datestring = "/".join(dts.datestr)
 

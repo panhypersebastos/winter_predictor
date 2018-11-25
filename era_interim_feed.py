@@ -5,5 +5,5 @@
 # python /home/dmasson/dev/data_management/ERA-INTERIM/era_interim_feed.py
 
 import os
-os.system('python era_interim_download.py')
+os.system('python era_interim_download_monthly.py')
 # os.system('era_interim_insert.py')

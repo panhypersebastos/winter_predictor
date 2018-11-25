@@ -1,8 +1,6 @@
-# This code downloads newest ERA data
-# Last modification: massond 2017-11-12
-
-# To run this code in a BATCH mode, enter the following command in the shell:
-# python ~/CloudStation/code/winter_predictor/era_interim_download_monthly.py > ~/data/logfiles/era_interim_download_monthly.log & 
+'''
+This code downloads newest ERA data
+'''
 
 from dateutil.relativedelta import relativedelta
 from ecmwfapi import ECMWFDataServer
@@ -11,16 +9,11 @@ import pymongo
 from os import listdir
 import os
 import fnmatch
-
-from datetime import datetime, date
-import numpy as np
-import itertools
-import pandas as pd
-
+from datetime import datetime
 from era_interim_download_functions import getMultivarMon
 
 # --- choose spatial resolution product version
-ERA_vers = 'lores' # or 'hires'
+ERA_vers = 'lores'  # or 'hires'
 
 if (ERA_vers == 'hires'):
     col_dat = 'ERAINT_monthly'
@@ -30,7 +23,6 @@ elif (ERA_vers == 'lores'):
     col_dat = 'ERAINT_lores_monthly'
     col_grid = 'ERAINT_lores_grid'
     resolution = 2.5
-
 # ---
 downloadDir = '/home/dmasson/data/era-interim/%s' % (ERA_vers)
 
