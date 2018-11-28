@@ -71,6 +71,8 @@ now = datetime.now().date()
 to_day = datetime(now.year, now.month, 1).date() - \
     relativedelta(months=2) - relativedelta(days=1)
 
+#to_day = now
+
 if from_day < to_day:
     t_interval = "%s to %s" % (from_day, to_day)
     logging.info("Downloading data for the period %s..." % (t_interval))

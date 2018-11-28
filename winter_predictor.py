@@ -2,17 +2,13 @@
 # in object-oriented programming style
 
 import numpy as np
-import logging
 import pymongo
 import pandas as pd
 from sklearn.decomposition import PCA
 import sklearn.linear_model as skl_lm
-from functools import reduce
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LassoCV
-from sklearn.metrics import mean_squared_error, r2_score
-import os
-import sys
+from sklearn.metrics import r2_score
 
 
 class Predictor:
@@ -59,7 +55,7 @@ class Predictor:
                           "date": 1,
                           variable: 1,
                           "month": {"$month": "$date"}}},
-            {"$match": {"month": {"$in": [9, 10, 11, 12, 1, 2]},
+            {"$match": {"month": {"$in": [8, 9, 10, 11, 12, 1, 2]},
                         "id_grid": {"$in": grid_ids.tolist()}}},
             {"$project": {"_id": 0, "id_grid": 1, "date": 1, variable: 1}}
         ])
@@ -200,8 +196,14 @@ class Predictor:
         mon_df = mon_df.drop(['date', 'year', 'month'], axis=1)
         return mon_df
 
-    def getPredictorsDF(self):
-        ''' This is the main function '''
+    def getPredictorsDF(self, predi='sept_oct'):
+        ''' 
+        This is the main function.
+        You can choose the predictor family:
+        predi = 'all' means aug-sep-oct months
+        predi = 'sept_oct'
+        predi = 'aug' means only august is available
+        '''
 
         # Get grid cell ids above 20°N and 20°S
         grid_df_20N = Predictor._getGridIds(self, aboveLat=20)
@@ -262,10 +264,20 @@ class Predictor:
         scores_df = pd.merge(scores_df0, nino_df)
 
         # Create the Predictor DataFrame based on the months of
-        # November and December:
-        sep_df = Predictor._createMondf(this_mon=9, scores_df=scores_df)
-        oct_df = Predictor._createMondf(this_mon=10, scores_df=scores_df)
-        X_df = pd.merge(sep_df, oct_df)
+        # August, September, October
+        if predi == 'sept_oct':
+            sep_df = Predictor._createMondf(this_mon=9, scores_df=scores_df)
+            oct_df = Predictor._createMondf(this_mon=10, scores_df=scores_df)
+            X_df = pd.merge(sep_df, oct_df)
+        elif predi == 'aug':
+            aug_df = Predictor._createMondf(this_mon=8, scores_df=scores_df)
+            X_df = aug_df
+        elif predi == 'all':
+            aug_df = Predictor._createMondf(this_mon=8, scores_df=scores_df)
+            sep_df = Predictor._createMondf(this_mon=9, scores_df=scores_df)
+            oct_df = Predictor._createMondf(this_mon=10, scores_df=scores_df)
+            X_df = pd.merge(sep_df, oct_df)
+            X_df = pd.merge(aug_df, X_df)
 
         self.X_df = X_df
 
@@ -415,8 +427,11 @@ class StationPrediction():
         anom_df = anom_df[['wyear', 'anom']]
         dat_df = pd.merge(anom_df, X_df, on='wyear', how='inner')
 
-        predNames = ['PC1_z70_9', 'PC1_z70_10',
-                     'PC1_ci_9', 'PC1_ci_10']
+        # !! Adapt here to 'predi' !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # predNames = ['PC1_z70_9', 'PC1_z70_10',
+        #              'PC1_ci_9', 'PC1_ci_10']
+        predNames = ['PC1_z70_8', 'PC2_z70_8', 'PC3_z70_8',
+                     'PC1_ci_8', 'PC2_ci_8', 'PC3_ci_8']
 
         dat_df = dat_df[dat_df['anom'].notnull()]  # eliminate NA rows
         X = dat_df[predNames].as_matrix()

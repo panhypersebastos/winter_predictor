@@ -22,16 +22,22 @@ import os
 from multiprocessing import Pool
 import psutil
 
+# YOUR INPUT HERE :
+# (i) Target Months:
+target_months = ['12', '1']
+# (ii) Predictor month(s)
+predi = 'aug'
+
 # Physical cores
 num_cores = psutil.cpu_count(logical=False)
 
 # Logiging
-logfilename = '/home/dmasson/CloudStation/code/winter_predictor/scan.log'
+logfilename = '/home/dmasson/CloudStation/code/winter_preditor/scan_%s.log' % predi
 if os.path.exists(logfilename):
         os.remove(logfilename)
 logging.basicConfig(filename=logfilename,
                     format='%(asctime)s %(message)s', level=logging.INFO)
-logging.info('WINTER PREDICTOR SCAN')
+logging.info('WINTER PREDICTOR SCAN: Predicting %s' % predi)
 
 '''
 PART 1 : GET PREDICTORS
@@ -40,7 +46,7 @@ for any target station to predict.
 '''
 
 PRED = Predictor()
-PRED.getPredictorsDF()
+PRED.getPredictorsDF(predi=predi)
 
 # Gather all relelvant station ids
 mongo_host_local = 'mongodb://localhost:27017/'
@@ -62,7 +68,7 @@ def scanStation(id,
                 min_nyears):
         print(id)
         STA = StationPrediction(station_id=int(id),
-                                target_months=['12', '1'],
+                                target_months=target_months,
                                 X_df=PRED.X_df)
         STA.queryData()
         STA.getAnomalies()
