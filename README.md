@@ -101,7 +101,7 @@ Code:
 
 * ghcnm_data.ipynb : _serves both for the data exploration and the data ingestion into MongoDB_
 
-##(2) Construction of the predictors
+## (2) Construction of the predictors
 We follow Wang et al. (2017) and perform a Principal Component Analysis of several ERA-interim variables.
 
 * era-int_pca_exploration.ipynb : _exploration and visualization of the main modes of variability for SIC, SC, SST._
