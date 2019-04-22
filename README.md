@@ -107,7 +107,8 @@ We follow Wang et al. (2017) and perform a Principal Component Analysis of sever
 * era-int_pca_exploration.ipynb : _exploration and visualization of the main modes of variability for SIC, SC, SST._
 * winter_predictor.py : _the class “Predictor” builds the predictor based on any ERA-interim variable._
 
-##(3) Seasonal prediction
+
+## (3) Seasonal prediction
 The first step is to reproduce the central result of Wang et al. (2017) and predict the Northern Atlantic Oscillation (NAO) index. 
 
 Code:
