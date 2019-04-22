@@ -34,7 +34,7 @@ The project consists in three modules:
 2. Construction of the predictors
 3. Seasonal prediction
 
-##(1) Data download and ingestion into MongoDB
+## (1) Data download and ingestion into MongoDB
 Sea-ice concentration, stratospheric circulation (Z70 hPa), sea surface temperature and other variables are provided by the [ERA-interim](https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era-interim) re-analysis. Station measurements for temperature (i.e. our “ground truth”) come from the GHCN dataset.
 ERA-interim reanalysis dataset
 
