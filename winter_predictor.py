@@ -1,6 +1,3 @@
-# This file contains all relevant code
-# in object-oriented programming style
-
 import numpy as np
 import pymongo
 import pandas as pd
@@ -12,12 +9,15 @@ from sklearn.metrics import r2_score
 
 
 class Predictor:
-    ''' This class is about gathering all the predictors as defined by
-    Wang et al. (2017). The central output is a DataFrame looking like:
-    |WinterYear | PC1_predA_month1 | ... | PC3_predZ_month2|
+    '''
+    This class constructs the predictors as defined by
+    Wang et al. (2017). The main output is a DataFrame whose columns are:
+    - WinterYear: the winter year is the one belonging to January, not December
+    - PC1_predA_<month1>, ..., PC3_predZ_<month2>
     Generally, 'month1' and 'month2' are November and December.
     The Predictor object will be the same for whatever station
-    to be predicted.'''
+    to be predicted.
+    '''
 
     def __init__(self):
         cons = Predictor._initializeCon()
@@ -28,7 +28,11 @@ class Predictor:
 
     @staticmethod
     def _initializeCon(ERA_vers='lores'):
-        ''' Create the connections to the MongoDB collections '''
+        '''
+        Create the connections to the MongoDB collections.
+        ---
+        ERA_vers -- string Which spatial resolution, low (lores) or high (hires)? Currently only 'lores' exists.
+        '''
         if (ERA_vers == 'hires'):
             col_dat = 'ERAINT_monthly'
             col_anom = 'ERAINT_monthly_anom'
@@ -42,11 +46,16 @@ class Predictor:
         mongo_host_local = 'mongodb://localhost:27017/'
         mg = pymongo.MongoClient(mongo_host_local)
         db = mg.ECMWF
-        return({'con_grid': db[col_grid], 'con_anom': db[col_anom]})
+        return({'con_grid': db[col_grid],
+                'con_anom': db[col_anom]})
 
     def _queryAnom(self, variable, grid_df):
-        ''' Query anomalies for a given variable and for
-        a set of grid cells '''
+        '''
+        Query anomalies for a given variable and for
+        a set of grid cells.
+        ---
+        variable string One variable among ['z70', 'ci', 'sst']
+        '''
 
         con_anom = self.con_anom[0]
         grid_ids = grid_df.id_grid.values
@@ -82,19 +91,32 @@ class Predictor:
 
     @staticmethod
     def _genCircle(start_lon, stop_lon, lat, decreasing):
-        ''' Helper function for the _createQueryAboveLat function.
-        In order to create a straight line on a sphere, it is necessary to 
-        generate many points along a given latitude and to connect them.'''
+        '''
+        Helper function for the _createQueryAboveLat function.
+        In order to create a line of constant longitude on a sphere,
+        it is necessary to generate many points along a given latitude
+        and to connect them.
+        ---
+        start_lon -- float Longitude of the starting point
+        stop_lon -- float Longitude of the end point
+        latitude -- float Constant latitude
+        '''
+
         res = map(lambda x:[int(x), lat],
                   sorted(np.arange(start=start_lon, stop=stop_lon+1),
                          reverse=decreasing))
         return list(res)
-
-
     
     @staticmethod
     def _createQueryAboveLat(aboveLat):
-        ''' Create geoQuery for the _getGridIds function.'''
+        '''
+        Helper function for the _getGridIds function.
+        It returns a json document used for the geospatial query
+        of all grid cells above a givent latitude.
+        ---
+        aboveLat -- float Latitude of the geo query
+        '''
+        
         this_box = {'lonmin': -180,
                     'lonmax': 180,
                     'latmin': aboveLat,
@@ -134,11 +156,17 @@ class Predictor:
         return(geo_qry)
     
     def _getGridIds(self, aboveLat=None, polygon=None):
-        ''' Get the set of all ERAINT grid cells either
-        (i) above a given latitude or (ii) within a given polygon '''
-        # This funtion replaces: queryGrids(above) and getGridIds(polygon)
-        con_grid = self.con_grid[0]
+        '''
+        Get the set of all ERAINT grid cells either
+        - above a given latitude
+        - or within a given polygon
+        (mutually exclusive). The object returned is a DataFrame.
+        ---
+        aboveLat -- float Get all grid_ids above this latitude
+        polygon -- list Find all grids_ids within this polygon
+        '''
 
+        con_grid = self.con_grid[0]
         if (aboveLat is not None):
             geo_qry = Predictor._createQueryAboveLat(aboveLat=aboveLat)
         elif (polygon is not None):
@@ -158,7 +186,12 @@ class Predictor:
 
     @staticmethod
     def _setWinterYear(date):
-        ''' December belongs to next year's winter '''
+        '''
+        December belongs to next year's winter.
+        ---
+        date -- datetime object
+        '''
+
         mon = date.month
         yr = date.year
         if mon >= 9:
@@ -169,7 +202,12 @@ class Predictor:
     
     @staticmethod
     def _assignWyear(df):
-        ''' Create a new column wyear corresponding to the winter year '''
+        '''
+        Creates a new column wyear corresponding to the winter year.
+        ---
+        df DataFrame
+        '''
+
         res_df = df.assign(
             year=list(map(lambda x: x.year, df.date)),
             wyear=list(map(lambda x: Predictor._setWinterYear(x), df.date)),
@@ -181,6 +219,7 @@ class Predictor:
         '''
         Create the Predictor DataFrame
         '''
+
         if ('PC' in x or 'Nino' in x):
             z = '%s_%s' % (x, mon)
         else:
@@ -198,11 +237,10 @@ class Predictor:
 
     def getPredictorsDF(self, predi='sept_oct'):
         ''' 
-        This is the main function.
-        You can choose the predictor family:
-        predi = 'all' means aug-sep-oct months
-        predi = 'sept_oct'
-        predi = 'aug' means only august is available
+        This is the main function to construct the predictors.
+        ---
+        predi string Which months will be used to construct the predictors?
+        Currently, the following choices exist: 'sept_oct' (as in Wang's study)
         '''
 
         # Get grid cell ids above 20°N and 20°S
