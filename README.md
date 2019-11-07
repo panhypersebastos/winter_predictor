@@ -128,3 +128,26 @@ Code:
 * Adapt, improve and update the data feeds for ERA-5 (instead of ERA-interim) and GHCN.
 * Seek for an alternative re-analysis dataset with an shorter prodcution latency as ERA-5
 * Go beyond linear regressions and involve more advanced machine learning method for prediction.
+
+
+## CONDA ENVIRONMENT
+
+* For the python option
+* Name: winter_predictor
+
+* Packages installation:
+
+```code
+conda create -n wpred python=3.7
+conda activate wpred
+
+conda config --env --add channels conda-forge
+conda config --env --set channel_priority strict
+
+conda install scikit-learn
+conda install jupyter
+conda install pymongo
+conda install matplotlib
+conda install pandas
+
+```
