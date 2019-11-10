@@ -100,7 +100,7 @@ A typical monthly station data document contains monthly observations and looks 
 
 Code: 
 
-* ghcnm_data.ipynb : _serves both for the data exploration and the data ingestion into MongoDB_
+* GHCN/ghcn_monthly_data.ipynb : _serves both for the data exploration and the data ingestion into MongoDB_
 
 ## (2) Construction of the predictors
 We follow Wang et al. (2017) and perform a Principal Component Analysis (PCA) of several ERA-interim variables.
