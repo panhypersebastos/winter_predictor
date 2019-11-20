@@ -123,8 +123,12 @@ Code:
 
 * winter_predictor.py : _this is the main code of this project. It contains a two classes: (i) a class “Predictor” that prepares covariate candidates for the regression and (ii) another class StationPrediction that perform the seasonal prediction at the station-level._
 * winter_predictor.ipynb : _illustrates the use of the classes mentioned above._
+* scan.py: _this script scans all stations and spots those that have both high predictability (i.e. R²>0.5) that will experience a large seasonal deviation._
 
-## (4) To do list:
+## (4) Additional files
+* input.csv: _contains the list of countries where the analysis is to be conducted_
+
+## (5) To do list:
 * Adapt, improve and update the data feeds for ERA-5 (instead of ERA-interim) and GHCN.
 * Seek for an alternative re-analysis dataset with an shorter prodcution latency as ERA-5
 * Go beyond linear regressions and involve more advanced machine learning method for prediction.
