@@ -1,6 +1,10 @@
 import logging
 import os
+from os import listdir
+import pandas as pd
+import datetime
 from pymongo import MongoClient
+import numpy as np
 
 
 class GHCN():
@@ -48,29 +52,80 @@ class GHCN():
         logging.info('Executing: %s DONE' % wget_command)
 
     @staticmethod
-    def _createMongoConn(experimental_setting):
+    def _createMongoConn():
         # MongoDB connections
-        # con = connect_mongo(prod=operator.not_(experimental_setting),
-        #                    rw=True)
-        if experimental_setting is True:
-            cfg_MONGO_CLIENT = MongoClient(
-                ["mongodb://bla:blabla@your_server:your_port"])
- 
-        con = cfg_MONGO_CLIENT
-        col_grid = con['your_db']['your_grid']
-        col_dat = con['your_db']['your_data']
-        return({'con': con,
-                'col_grid': col_grid,
+        mongo_host_local = 'mongodb://localhost:27017/'
+        mg = MongoClient(mongo_host_local)
+        db_name = 'GHCNM'
+        col_sta = mg[db_name]['stations']
+        col_dat = mg[db_name]['data']
+        return({'con': mg,
+                'col_sta': col_sta,
                 'col_dat': col_dat})
+
+    def findNewestFile(self, pattern):
+        '''
+        pattern: str one among '.inv' for station metadata, or
+                               '.dat' for time series
+        '''
+        # List the latest file
+        fl = [os.path.join(dp, f) for dp, dn, fn in
+              os.walk(os.path.expanduser(self.downloadDir))
+              for f in fn if f.endswith(pattern)]
+
+        df = pd.DataFrame({'path': fl})
+        df = df.assign(filedate=list(map(
+            lambda x: datetime.datetime.strptime(x[-16:-8], '%Y%m%d'),
+            df['path'])))
+        # Pick the newest file
+        df = df.sort_values(by='filedate',
+                            ascending=False).reset_index(drop=True)
+        path = df.loc[0, 'path']
+        return(path)
  
-    def your_function(self, x):
+    def upsertStationCollection(self):
         '''
-        Function description
-        ---
-        x -- type Description
+        Once the metadta file for stations has been downloaded,
+        insert in the station collection.
         '''
-        y = x+1
-        return(y)
+        # Country metadata
+        country_df = pd.read_fwf('ghcnm-countries.txt',
+                                 colspecs=[[0,2], [3, 500]],
+                                 header=None,
+                                 names=['country_id', 'country'])
+        # Get station metadata
+        path = self.findNewestFile(pattern='.inv')
+        sta_df = pd.read_fwf(path,
+                             colspecs=[[0,11], [0,2],[2,8],[13, 20],
+                                       [24, 30], [31,37], [38,69],
+                                       [90, 106],[106,107]],
+                             header=None,
+                             names=['station_id','country_id',
+                                    'wmo_id', 'lat', 'lon', 'elev',
+                                    'name', 'landcover', 'popclass'])
+        sta_df = pd.merge(sta_df, country_df, on='country_id')
+
+        # Upsert into MongoDB
+        col_sta = self._createMongoConn()['col_sta']
+
+        def upsertStation(i):
+            newdoc = dict({
+                'station_id': str(sta_df.station_id[i]),
+                'loc': {'type': 'Point',
+                        'coordinates': [float(sta_df.lon[i]),
+                                        float(sta_df.lat[i])]},
+                       'country': sta_df.country[i],
+                       'country_id': str(sta_df.country_id[i]),
+                       'wmo_id': str(sta_df.wmo_id[i]),
+                       'elev': sta_df.elev[i],
+                       'name': sta_df.name[i],
+                       'landcover': sta_df.landcover[i],
+                'popclass': sta_df.popclass[i]})
+
+            col_sta.update_one(
+                filter={"station_id": newdoc['station_id']},
+                update=dict({'$set': newdoc}), upsert=True)
+        void = list(map(upsertStation, np.arange(sta_df.shape[0])))
 
 
 def main():
