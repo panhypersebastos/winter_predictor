@@ -37,6 +37,19 @@ The project consists in three modules:
 ## (1) Data download and ingestion into MongoDB
 Monthly sea-ice concentration, stratospheric circulation (Z70 hPa), sea surface temperature and other variables are provided by the [ERA-interim](https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era-interim) re-analysis dataset. Monthly station measurements for temperature (i.e. our _“ground truth”_) come from the [GHCN](https://www.ncdc.noaa.gov/ghcn-daily-description) dataset.
 
+### Summary data collections
+
+The data is stored in the following collections:
+___
+
+| Description | Database        | Collection|
+|:-------------|:-------------|:-----|
+|GHCNM stations | GHCNM |stations|
+|GHCNM data| GHCNM |dat|
+
+___
+
+
 ### Monthly ERA-interim reanalysis dataset
 
 Let’s start by downloading and exploring the monthly **ERA-interim** datasat:
@@ -74,6 +87,8 @@ Code:
 
 ### Monthly GHCN station dataset
 
+For the code an dmore details, check [README_GHCN_MONTHLY.md](GHCN/README_GHCN_MONTHLY.md)
+
 The [GHCN](https://www.ncdc.noaa.gov/data-access/land-based-station-data/land-based-datasets/global-historical-climatology-network-ghcn) database contains two collections, one recording the location and the name of the stations, one other containing the time series. A typical station document looks like this:
 
 ```
@@ -97,10 +112,6 @@ A typical monthly station data document contains monthly observations and looks 
 (…), 
 ‘december’: 3.2}
 ```
-
-Code: 
-
-* GHCN/ghcn_monthly_data.ipynb : _serves both for the data exploration and the data ingestion into MongoDB_
 
 ## (2) Construction of the predictors
 We follow Wang et al. (2017) and perform a Principal Component Analysis (PCA) of several ERA-interim variables.

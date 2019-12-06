@@ -4,6 +4,7 @@ from os import listdir
 import pandas as pd
 import datetime
 from pymongo import MongoClient
+import pymongo
 import numpy as np
 
 
@@ -40,7 +41,9 @@ class GHCN():
 
     def wgetData(self):
         '''
-        Downloads the GHCN monthly data using wget
+        Downloads the GHCN monthly data using wget.
+        This downloads both the station metadata and
+        the monthly data itself.
         '''
         wget_command = 'wget -nH --cut-dirs=100 -np -P %s -m %s && tar -xzf %s/ghcnm.tavg.latest.qcu.tar.gz -C %s' % (
             self.downloadDir,
@@ -85,8 +88,9 @@ class GHCN():
  
     def upsertStationCollection(self):
         '''
-        Once the metadta file for stations has been downloaded,
-        insert in the station collection.
+        Once the metadta file for stations has been downloaded
+        (generally in the same wget step as for the observations),
+        insert station metadata in the station collection.
         '''
         # Country metadata
         country_df = pd.read_fwf('ghcnm-countries.txt',
@@ -126,6 +130,15 @@ class GHCN():
                 filter={"station_id": newdoc['station_id']},
                 update=dict({'$set': newdoc}), upsert=True)
         void = list(map(upsertStation, np.arange(sta_df.shape[0])))
+
+    def createStationIndexing(self):
+        '''
+        Add indexes
+        Warning: geospatial index require -180, +180 longitudes
+        '''
+        col_sta = self._createMongoConn()['col_sta']
+        col_sta.create_index([("station_id", pymongo.ASCENDING)])
+        col_sta.create_index([("loc", pymongo.GEOSPHERE)])
 
 
 def main():

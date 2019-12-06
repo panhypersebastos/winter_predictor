@@ -2,7 +2,7 @@
 
 Loads the GHCN station data at the monthly time scale.
 
-* Check the notebook __GHCN/ghcn_monthly_data.ipynb__ for a sketch of the feed
+* Check the notebook __GHCN/ghcn_monthly_data.ipynb__ for a preliminary sketch of the feed
 * The feed itself is __CHCN/ghcn_monthly_feed.py__
 * The class is being tested in __GHCN/ghcn_monthly_class_test.ipynb__
 
