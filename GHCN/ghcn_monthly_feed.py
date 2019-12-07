@@ -66,6 +66,23 @@ class GHCN():
                 'col_sta': col_sta,
                 'col_dat': col_dat})
 
+    def createStationIndexing(self):
+        '''
+        Add indexes
+        Warning: geospatial index require -180, +180 longitudes
+        '''
+        col_sta = self._createMongoConn()['col_sta']
+        col_sta.create_index([("station_id", pymongo.ASCENDING)])
+        col_sta.create_index([("loc", pymongo.GEOSPHERE)])
+
+    def createDataIndexing(self):
+        '''
+        Add indexes for the station data collection
+        '''
+        col_dat = self._createMongoConn()['col_dat']
+        col_dat.create_index([("station_id", pymongo.ASCENDING)])
+        col_dat.create_index([("year", pymongo.DESCENDING)])
+
     def findNewestFile(self, pattern):
         '''
         pattern: str one among '.inv' for station metadata, or
@@ -131,14 +148,46 @@ class GHCN():
                 update=dict({'$set': newdoc}), upsert=True)
         void = list(map(upsertStation, np.arange(sta_df.shape[0])))
 
-    def createStationIndexing(self):
+    def insertDataCollection(self):
         '''
-        Add indexes
-        Warning: geospatial index require -180, +180 longitudes
+        Insert the csv table "as is".
+        We anyway need to group by month later in the analysis.
+        This code delete any existing data and re-insert it.
         '''
-        col_sta = self._createMongoConn()['col_sta']
-        col_sta.create_index([("station_id", pymongo.ASCENDING)])
-        col_sta.create_index([("loc", pymongo.GEOSPHERE)])
+        # Read the most recent file
+        fnew = self.findNewestFile(pattern='.dat')
+        logging.info('Inserting %s', fnew)
+        dat_df = pd.read_fwf(fnew,
+                             na_values='-9999',
+                             colspecs=[[0, 11], [11, 15], [15, 19],
+                                       [19, 24], [27, 32], [35, 40],
+                                       [43, 48], [51, 56], [59, 64],
+                                       [67, 72], [75, 80], [83, 88],
+                                       [91, 96], [99, 104], [107, 112]],
+                             header=None,
+                             #nrows=20,
+                             names=['station_id', 'year', 'variable',
+                                    '1', '2', '3', '4', '5', '6',
+                                    '7', '8', '9', '10', '11', '12'])
+        # Convertion to °C
+        dat_df['1'] = dat_df['1']/100
+        dat_df['2'] = dat_df['2']/100
+        dat_df['3'] = dat_df['3']/100
+        dat_df['4'] = dat_df['4']/100
+        dat_df['5'] = dat_df['5']/100
+        dat_df['6'] = dat_df['6']/100
+        dat_df['7'] = dat_df['7']/100
+        dat_df['8'] = dat_df['8']/100
+        dat_df['9'] = dat_df['9']/100
+        dat_df['10'] = dat_df['10']/100
+        dat_df['11'] = dat_df['11']/100
+        dat_df['12'] = dat_df['12']/100
+        # Insert the table above "as is".
+        # We anyway need to group by month later in the analysis.
+        col_dat = self._createMongoConn()['col_dat']
+        # Delete and re-insert
+        col_dat.delete_many(filter={})
+        col_dat.insert_many(dat_df.to_dict('records'))
 
 
 def main():
@@ -148,6 +197,7 @@ def main():
     G = GHCN(downloadDir='/home/dmasson/data/GHCNM/',
              logfilename='/home/dmasson/temp/ghcnm.log')
     G.wgetData()
+    G.insertDataCollection()
     logging.info('Job done.')
 
 
