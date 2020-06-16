@@ -14,7 +14,7 @@ class GHCN():
     GHCN monthly data.
     '''
 
-    remote_data = 'ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/v4/ghcnm.tavg.latest.qcu.tar.gz'
+    remote_data = 'https://www1.ncdc.noaa.gov/pub/data/ghcn/v4/ghcnm.tavg.latest.qcu.tar.gz'
 
     def __init__(self,
                  downloadDir,
@@ -22,8 +22,7 @@ class GHCN():
         '''
         downloadDir -- string Path where the GHCN data is saved
         '''
- 
-        # Stuff that get initialized
+
         self.downloadDir = downloadDir
         self.logfilename = logfilename
  
@@ -110,7 +109,7 @@ class GHCN():
         insert station metadata in the station collection.
         '''
         # Country metadata
-        country_df = pd.read_fwf('ghcnm-countries.txt',
+        country_df = pd.read_fwf('%sghcnm-countries.txt' % self.downloadDir,
                                  colspecs=[[0,2], [3, 500]],
                                  header=None,
                                  names=['country_id', 'country'])
@@ -198,6 +197,16 @@ def main():
              logfilename='/home/dmasson/temp/ghcnm.log')
     G.wgetData()
     G.insertDataCollection()
+
+    historical = False
+    if historical is True:
+        # Generally done for the first insertion
+        # Create the station collection (only needed once)
+        G.upsertStationCollection()
+        # Create indexes for station metadata
+        G.createStationIndexing()
+        # Create indexes for observations
+        G.createDataIndexing()
     logging.info('Job done.')
 
 

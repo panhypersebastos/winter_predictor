@@ -14,11 +14,11 @@ Collection created in MongoDB:
 
 ## DATA SOURCE
 
-* [GHCN](ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/v4/) portal
+* [GHCN](https://www1.ncdc.noaa.gov/pub/data/ghcn/v4/) portal
 * The **data** file has the following name pattern: ghcnm.VAR.VERSION.qcu.dat
 * There are 12 columns, one for each of the 12 months
 * The *station colcation* file has the following name pattern: ghcnm.VAR.VERSION.qcu.inv
-* The [metadata](ftp://ftp.ncdc.noaa.gov/pub/data/ghcn/v4/readme.txt) indicates that the *value* column is of type INTEGER with:
+* The [metadata](https://www1.ncdc.noaa.gov/pub/data/ghcn/v4/readme.txt) indicates that the *value* column is of type INTEGER with:
 * * PRCP = Precipitation (tenths of mm)
 * * TMAX = Maximum temperature (tenths of degrees C)
 * * TMIN = Minimum temperature (tenths of degrees C)
@@ -42,7 +42,4 @@ conda install jupyter
 conda install matplotlib
 conda install flake8
 conda install pyspark
-# conda install ipdb
-
-
 ```
