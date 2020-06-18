@@ -35,7 +35,7 @@ The project consists in three modules:
 3. Seasonal prediction
 
 ## (1) Data download and ingestion into MongoDB
-Monthly sea-ice concentration, stratospheric circulation (Z70 hPa), sea surface temperature and other variables are provided by the [ERA-interim](https://www.ecmwf.int/en/forecasts/datasets/reanalysis-datasets/era-interim) re-analysis dataset. Monthly station measurements for temperature (i.e. our _“ground truth”_) come from the [GHCN](https://www.ncdc.noaa.gov/ghcn-daily-description) dataset.
+Monthly sea-ice concentration, stratospheric circulation (Z70 hPa), sea surface temperature and other variables are provided by the [ERA5T](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=overview) re-analysis dataset. Monthly station measurements for temperature (i.e. our _“ground truth”_) come from the [GHCN](https://www.ncdc.noaa.gov/ghcn-daily-description) dataset.
 
 ### Summary data collections
 
@@ -50,9 +50,11 @@ ___
 ___
 
 
-### Monthly ERA-interim reanalysis dataset
+### Monthly ERA5T reanalysis dataset
 
-Let’s start by downloading and exploring the monthly **ERA-interim** datasat:
+For the code and more details, check [README_ERA5T_MONTHLY.md](ERA5T/README_ERA5T_MONTHLY.md)
+
+Let’s start by downloading and exploring the monthly **ERA5T** datasat:
 
 * era_interim_download_monthly.py : script to download ERA-interim NetCDF files.
 * era-interim_exploration.ipynb : get familiar with the content of an ERA-interim NetCDF file.
@@ -87,7 +89,7 @@ Code:
 
 ### Monthly GHCN station dataset
 
-For the code an dmore details, check [README_GHCN_MONTHLY.md](GHCN/README_GHCN_MONTHLY.md)
+For the code and more details, check [README_GHCN_MONTHLY.md](GHCN/README_GHCN_MONTHLY.md)
 
 The [GHCN](https://www.ncdc.noaa.gov/data-access/land-based-station-data/land-based-datasets/global-historical-climatology-network-ghcn) database contains two collections, one recording the location and the name of the stations, one other containing the time series. A typical station document looks like this:
 
@@ -148,12 +150,12 @@ Code:
 ## CONDA ENVIRONMENT
 
 * For the python option
-* Name: winter_predictor
+* Name: wpred
 
 * Packages installation:
 
 ```code
-conda create -n wpred python=3.7
+conda create -n wpred python=3
 conda activate wpred
 
 conda config --env --add channels conda-forge
@@ -164,5 +166,20 @@ conda install jupyter
 conda install pymongo
 conda install matplotlib
 conda install pandas
+conda install cdsapi
+
+# Geospatial packages
+conda install xarray dask netCDF4 bottleneck
+conda install pymssql
+conda install -c mvdbeek multiprocessing-logging
+conda install joblib
+conda install geopandas
+conda install descartes
+conda install -c oggm salem
+conda install rasterio
+conda install contextily
+
+conda install flake8
+conda install pyspark
 
 ```
