@@ -1,58 +1,64 @@
 # Winter Predictor
-## Description
+## Background
 Can we predict future winter average temperatures in the Northern Hemisphere one month in advance? Where are average temperature more likely to be extreme? The challenge of seasonal forecasting is typically addressed with numerical simulations based on physics and empirical parametrization of sub-grid cells processes. While widespread, this approach is computationally expensive and requires solid meteorological modeling knowledge. In contrast, we adopt here a purely statistical approach which is computationally cheap and relates temperature anomalies to spatial and temporal patterns of typical weather.
 
 When starting this project, I had a few goals in mind:
 
 * Set-up a prototype for a winter hedge product, i.e. guess which meteorological stations will have maximal payouts in “Heating Degree Days” option-like weather certificates.
-* Illustrate how MongoDB can be used in climate research.
-* Improve my knowledge of Python. As by 2017 I was proficient in R but not yet in Python.
+* Create a flexible technical environment that will serve as a testbed for several machine learning experiments. 
+* Illustrate how databases can efficiently be used in climate research.
 
-This work is based on the work of [Wang et al. (2017)](https://www.nature.com/articles/s41598-017-00353-y). The authors have shown that autumn patterns of sea-ice concentration (SIC), stratospheric circulation (SC) and sea surface temperature (SST) are closely related to the winter Norther Atlantic Oscillation (NAO) index. Using linear regressions and Principal Component Analysis, I managed to reproduce the following central result of this study: principal component scores of SIC, SC and SST patterns explain roughly 57% of the average winter NAO index. Next, I have extended this methodology at the spatial scale of individual stations.
+## Scientific background
+This work is based on the work of [Wang et al. (2017)](https://www.nature.com/articles/s41598-017-00353-y). The authors have shown that autumn patterns of sea-ice concentration (SIC), stratospheric circulation (SC) and sea surface temperature (SST) are closely related to the winter Norther Atlantic Oscillation (NAO) index. Using linear regressions and Principal Component Analysis (PCA), I managed to reproduce the following central result of this study: principal component scores of **SIC, SC and SST patterns explain roughly 57% of the average winter NAO index**. Next, I have extended this methodology at the spatial scale of individual stations.
 
-While the code is now fully operational, I unfortunately did not become rich... Because post-processing for the production of the ERA dataset typically needs one month or so, autumn data is only ready when winter starts. By that time, it’s too late to put any money on a winter hedge product. If the reanalysis data could be available earlier, I suppose this project could be re-activated and improved in order to be profitable.
 
 The following figures show the principal component patterns for sea-ice concentration (Figure 1, first loading), stratospheric circulation (Figure 2, second loading) and sea surface temperature (Figure 3, third loading). The combined amplitudes of these patterns are related to temperature anomalies in the northern hemisphere.
 
-![Figure 1](sic_pc01.jpg)
+![Figure 1](data/sic_pc01.jpg)
 
 Figure 1: Leading principal component for sea-ice concentration (SIC) in autumn. This mode features patterns localized in the Barents and Kara Seas during the freezing season and explains 13.3% of SIC variability. 
 
-![Figure 1](z70hPa.jpg)
+![Figure 1](data/z70hPa.jpg)
 
 Figure 2: Second principal component of stratospheric circulation (Z70hPa). This mode exhibits a bipolar pattern over eastern Siberia and northern Canada and explains 9.8% of stratospheric circulation variability in autumn. Its positive phase is characterized by an eastward shift of the polar vortex. 
 
-![Figure 1](sst_pc03.jpg)
+![Figure 1](data/sst_pc03.jpg)
 
 
 Figure 3: Third principal component of sea surface temperature (SST). This mode shows a tri-polar pattern in the Northern Atlantic sector (a warm center in mid-latitudes and cold anomalies on the tropical and polar sides) and explains 5.2% of SST variability in autumn.
 
+## Structure of the project
 
-The project consists in three modules:
+The project consists of three phases:
 
-1. Data download and ingestion into MongoDB
-2. Construction of the predictors
-3. Seasonal prediction
+1. Data download and ingestion into MongoDB.
+2. Construction of the predictors.
+3. Seasonal prediction.
+
+## Prerequisites
+
+I assume that the user has a MongoDB database running locally.
 
 ## (1) Data download and ingestion into MongoDB
-Monthly sea-ice concentration, stratospheric circulation (Z70 hPa), sea surface temperature and other variables are provided by the [ERA5T](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=overview) re-analysis dataset. Monthly station measurements for temperature (i.e. our _“ground truth”_) come from the [GHCN](https://www.ncdc.noaa.gov/ghcn-daily-description) dataset.
+
+* **Grid dataset**: monthly sea-ice concentration, stratospheric circulation (Z70 hPa), sea surface temperature and other variables are provided by the [ERA5T](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=overview) re-analysis dataset. More details are given in the [README_ERA5T_MONTHLY.md](README_ERA5T_MONTHLY.md) file.
+* **Station dataset**: monthly station measurements for temperature (i.e. our _“ground truth”_) come from the [GHCN](https://www.ncdc.noaa.gov/ghcn-daily-description) dataset. More details are given in the [README_GHCN_MONTHLY.md](README_GHCN_MONTHLY.md) file.
 
 ### Summary data collections
 
-The data is stored in the following collections:
-___
+In MongoDB, the data is stored in the following two collections:
 
-| Description | Database        | Collection|
+
+| Description | Database name| Collection name|
 |:-------------|:-------------|:-----|
 |GHCNM stations | GHCNM |stations|
 |GHCNM data| GHCNM |dat|
+|ERA5t grid| ERA5t |grid|
+|ERA5t data| ERA5t |dat|
 
-___
 
 
 ### Monthly ERA5T reanalysis dataset
-
-For the code and more details, check [README_ERA5T_MONTHLY.md](ERA5T/README_ERA5T_MONTHLY.md)
 
 Let’s start by downloading and exploring the monthly **ERA5T** datasat:
 

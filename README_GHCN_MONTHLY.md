@@ -2,9 +2,9 @@
 
 Loads the GHCN station data at the monthly time scale.
 
-* The feed is in __CHCN/ghcn_monthly_feed.py__. It updates the station data.
-* The class can be tested in __GHCN/ghcn_monthly_class_test.ipynb__
-* The notebook __GHCN/ghcn_monthly_data.ipynb__ once served as a preliminary sketch of the feed
+* The feed is in `pred/ghcn_monthly_feed.py`. It updates the station data.
+* The class can be tested in `dev/ghcn_monthly_class_test.ipynb`
+* The notebook `dev/ghcn_monthly_data.ipynb` once served as a preliminary sketch of the feed
 
 
 Collection created in MongoDB:
@@ -22,24 +22,3 @@ Collection created in MongoDB:
 * * PRCP = Precipitation (tenths of mm)
 * * TMAX = Maximum temperature (tenths of degrees C)
 * * TMIN = Minimum temperature (tenths of degrees C)
-
-
-## CONDA ENVIRONMENT
-
-
-```code
-conda create -n ghcn
-conda activate ghcn
-
-conda config --env --add channels conda-forge
-conda config --env --set channel_priority strict
-
-conda install pymssql
-pip install git+https://bitbucket.com/celsiuspro/pycputils
-conda install -c mvdbeek multiprocessing-logging
-conda install joblib
-conda install jupyter
-conda install matplotlib
-conda install flake8
-conda install pyspark
-```
