@@ -1,5 +1,20 @@
 # ERA5T DATA
 
+
+Let’s start by downloading and exploring the monthly **ERA5T** datasat:
+
+* era_interim_download_monthly.py : script to download ERA-interim NetCDF files.
+* era-interim_exploration.ipynb : get familiar with the content of an ERA-interim NetCDF file.
+
+Then, let’s ingest ERA-interim data into MongoDB.
+
+Code:
+
+* era-interim_grid.py : _creation of the grid collection._
+* era_interim_insert.py : _creation of the data collection._
+* era-interim_exploration.ipynb : _get familiar with the newly created ERA-interim collections._
+
+
 * The goal is to download meteorological re-analysis data from the European Centre for Medium-Range Weather Forecasts ([ECMWF](https://www.ecmwf.int/)) [ERA5](https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation) dataset.
 * Among a vast plethora of possible variables (see [here](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels?tab=overview) for example and [here]() for the variable descriptions), we decided to source the following variables:
     * TO BE ADAPTED TO WINTER PREDICTOR !!!

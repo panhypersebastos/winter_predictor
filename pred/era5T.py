@@ -598,27 +598,9 @@ class ERA5T():
 
 
 def main():
-
-    ERA = ERA5T(
-        downloadDir='/home/dmasson/data/ERA5T_WP/',
-        logfilename='/home/dmasson/data/ERA5T_WP/logfiles/era5.log',
-        historical=True,
-        download=True)
-
-    if ERA.historical is True:
-        years = np.arange(2000, datetime.today().year+1).tolist()
-        # ERA.createDataColIndex()  # uncomment if the col does not exist yet
-
-    else:
-        today = datetime.today().date()
-        years = np.arange(ERA.newday.year, today.year+1).tolist()
-        logging.info('Latest date present in MongoDB: %s' % ERA.lastDate)
-        logging.info('Updating MongoDB from  %s' % ERA.newday)
-
-    logging.info('Years to process: %s' % years)
-    ERA.processYears(years=years)
-    logging.info(' --- JOB DONE !!! ---')
-
+    '''
+    Main code to run in script mode
+    '''
 
 if __name__ == '__main__':
     main()

@@ -8,6 +8,23 @@ When starting this project, I had a few goals in mind:
 * Create a flexible technical environment that will serve as a testbed for several machine learning experiments. 
 * Illustrate how databases can efficiently be used in climate research.
 
+## Structure of the project
+
+The project consists of three phases:
+
+1. Data download and ingestion into MongoDB.
+2. Construction of the predictors.
+3. Seasonal prediction.
+<a name="prerequisites">
+## Prerequisites
+</a>
+
+* I assume that the user has a MongoDB database running locally. If you have a MongoDB server running elsewhere, you can modify the access file `data/config_mongodb.json`.
+* All necessary Python packages can be installed in a [pipenv](https://docs.pipenv.org/) virtual environment (venv). The Pipfile is located in [env/Pipfile](env/Pipfile). In order to setup the venv:
+    * Install [pipenv](https://docs.pipenv.org/).
+    * Go to the 'env/' directory and execute `pipenv install`.
+    * In order to activate the venv, execute `pipenv shell` from the `env/` directory.
+
 ## Scientific background
 This work is based on the work of [Wang et al. (2017)](https://www.nature.com/articles/s41598-017-00353-y). The authors have shown that autumn patterns of sea-ice concentration (SIC), stratospheric circulation (SC) and sea surface temperature (SST) are closely related to the winter Norther Atlantic Oscillation (NAO) index. Using linear regressions and Principal Component Analysis (PCA), I managed to reproduce the following central result of this study: principal component scores of **SIC, SC and SST patterns explain roughly 57% of the average winter NAO index**. Next, I have extended this methodology at the spatial scale of individual stations.
 
@@ -27,22 +44,19 @@ Figure 2: Second principal component of stratospheric circulation (Z70hPa). This
 
 Figure 3: Third principal component of sea surface temperature (SST). This mode shows a tri-polar pattern in the Northern Atlantic sector (a warm center in mid-latitudes and cold anomalies on the tropical and polar sides) and explains 5.2% of SST variability in autumn.
 
-## Structure of the project
-
-The project consists of three phases:
-
-1. Data download and ingestion into MongoDB.
-2. Construction of the predictors.
-3. Seasonal prediction.
-
-## Prerequisites
-
-I assume that the user has a MongoDB database running locally.
-
 ## (1) Data download and ingestion into MongoDB
 
-* **Grid dataset**: monthly sea-ice concentration, stratospheric circulation (Z70 hPa), sea surface temperature and other variables are provided by the [ERA5T](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=overview) re-analysis dataset. More details are given in the [README_ERA5T_MONTHLY.md](README_ERA5T_MONTHLY.md) file.
+Quick summary of the datasets:
+
 * **Station dataset**: monthly station measurements for temperature (i.e. our _“ground truth”_) come from the [GHCN](https://www.ncdc.noaa.gov/ghcn-daily-description) dataset. More details are given in the [README_GHCN_MONTHLY.md](README_GHCN_MONTHLY.md) file.
+* **Grid dataset**: monthly sea-ice concentration, stratospheric circulation (Z70 hPa), sea surface temperature and other variables are provided by the [ERA5T](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=overview) re-analysis dataset. More details are given in the [README_ERA5T_MONTHLY.md](README_ERA5T_MONTHLY.md) file.
+
+Given that you already have a MongoDB database running locally and with all required python package installed (see [Prerequisites](#prerequisites)), source and ingest (or update) both datasets by executing the following commands:
+
+1. `cd env/ && pipenv shell && cd ..`
+2. `python script/01_ghcn_monthly_feed.py`
+3. `python script/02_era5T_feed.py`
+
 
 ### Summary data collections
 
@@ -56,48 +70,11 @@ In MongoDB, the data is stored in the following two collections:
 |ERA5t grid| ERA5t |grid|
 |ERA5t data| ERA5t |dat|
 
-
-
-### Monthly ERA5T reanalysis dataset
-
-Let’s start by downloading and exploring the monthly **ERA5T** datasat:
-
-* era_interim_download_monthly.py : script to download ERA-interim NetCDF files.
-* era-interim_exploration.ipynb : get familiar with the content of an ERA-interim NetCDF file.
-
-Then, let’s ingest ERA-interim data into MongoDB. Two collections are necessary: a collection containing the grid cell locations and a second collection containing the monthly time series. A typical grid document is spatially indexed and looks like this:
-
-```
-{'_id': ObjectId('...'), 
- 'id_grid': 1, 
- 'loc': {
- 'coordinates': [-180.0, 90.0], 
- 'type': 'Point'}}
-```
- 
-A typical re-analysis monthly data document has indexes put on the date and grid_id and looks like this:
-
-```
-{'_id': ObjectId('...'),  
-'date': datetime.datetime(1995, 1, 1, 0, 0),  
-'id_grid': 1, …, 
-'ci': 1.0, 
-'sp': 102342.02, 
-'sst': 271.46, 
-'z70': 168316.99}
-```
-
-Code:
-
-* era-interim_grid.py : _creation of the grid collection._
-* era_interim_insert.py : _creation of the data collection._
-* era-interim_exploration.ipynb : _get familiar with the newly created ERA-interim collections._
-
 ### Monthly GHCN station dataset
 
-For the code and more details, check [README_GHCN_MONTHLY.md](GHCN/README_GHCN_MONTHLY.md)
+For all details, check [README_GHCN_MONTHLY.md](README_GHCN_MONTHLY.md)
 
-The [GHCN](https://www.ncdc.noaa.gov/data-access/land-based-station-data/land-based-datasets/global-historical-climatology-network-ghcn) database contains two collections, one recording the location and the name of the stations, one other containing the time series. A typical station document looks like this:
+The [GHCN](https://www.ncdc.noaa.gov/data-access/land-based-station-data/land-based-datasets/global-historical-climatology-network-ghcn) database contains two collections, one recording the location and the name of the stations, one other containing the time series. A typical station document in MongoDB looks like this:
 
 ```
 {'_id': ObjectId('...'), 
@@ -120,6 +97,35 @@ A typical monthly station data document contains monthly observations and looks 
 (…), 
 ‘december’: 3.2}
 ```
+
+
+### Monthly ERA5T reanalysis dataset
+For all details, check [README_ERA5T_MONTHLY.md](README_ERA5T_MONTHLY.md)
+
+The [ERA5T](https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation) database contains two collections: one containing the grid cell locations and a second collection containing the monthly time series. A typical grid document is spatially indexed and looks like this:
+
+```
+{'_id': ObjectId('...'), 
+ 'id_grid': 1, 
+ 'loc': {
+ 'coordinates': [-180.0, 90.0], 
+ 'type': 'Point'}}
+```
+ 
+A typical re-analysis monthly data document has indexes put on the date and grid_id and looks like this:
+
+```
+{'_id': ObjectId('...'),  
+'date': datetime.datetime(1995, 1, 1, 0, 0),  
+'id_grid': 1, …, 
+'ci': 1.0, 
+'sp': 102342.02, 
+'sst': 271.46, 
+'z70': 168316.99}
+```
+
+
+
 
 ## (2) Construction of the predictors
 We follow Wang et al. (2017) and perform a Principal Component Analysis (PCA) of several ERA-interim variables.
@@ -151,41 +157,3 @@ Code:
 * Adapt, improve and update the data feeds for ERA-5 (instead of ERA-interim) and GHCN.
 * Seek for an alternative re-analysis dataset with an shorter prodcution latency as ERA-5
 * Go beyond linear regressions and involve more advanced machine learning method for prediction.
-
-
-## CONDA ENVIRONMENT
-
-* For the python option
-* Name: wpred
-
-* Packages installation:
-
-```code
-conda create -n wpred python=3
-conda activate wpred
-
-conda config --env --add channels conda-forge
-conda config --env --set channel_priority strict
-
-conda install scikit-learn
-conda install jupyter
-conda install pymongo
-conda install matplotlib
-conda install pandas
-conda install cdsapi
-
-# Geospatial packages
-conda install xarray dask netCDF4 bottleneck
-conda install pymssql
-conda install -c mvdbeek multiprocessing-logging
-conda install joblib
-conda install geopandas
-conda install descartes
-conda install -c oggm salem
-conda install rasterio
-conda install contextily
-
-conda install flake8
-conda install pyspark
-
-```

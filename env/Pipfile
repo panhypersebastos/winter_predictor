@@ -1,0 +1,44 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+numpy = "*"
+pandas = "*"
+geopandas = "*"
+jupyter = "*"
+ipykernel = "*"
+pymongo = "*"
+xlrd = "*"
+requests = "*"
+bs4 = "*"
+wget = "*"
+rope = "*"
+jedi = "*"
+flake8 = "*"
+autopep8 = "*"
+yapf = "*"
+cdsapi = "*"
+xarray = "*"
+plotly = "*"
+multiprocessing-logging = "*"
+matplotlib = "*"
+netcdf4 = "*"
+descartes = "*"
+cartopy = "*"
+oauthlib = "*"
+requests-oauthlib = "*"
+xmltodict = "*"
+joblib = "*"
+google-cloud-bigquery = "*"
+tqdm = "*"
+contextily = "*"
+pandasql = "*"
+gprof2dot = "*"
+openpyxl = "*"
+
+[requires]
+python_version = "3.7"
