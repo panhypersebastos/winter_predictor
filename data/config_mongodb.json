@@ -1,7 +1,0 @@
-{
-    "db_host": ".....",
-    "db_port": ....,
-    "db_database": ["admin", "local", "config"],
-    "db_user": ".....",
-    "db_password": "...."
-}

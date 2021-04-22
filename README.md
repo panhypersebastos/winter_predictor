@@ -19,7 +19,7 @@ The project consists of three phases:
 ## Prerequisites
 </a>
 
-* I assume that the user has a MongoDB database running locally. If you have a MongoDB server running elsewhere, you can modify the access file `data/config_mongodb.json`.
+* Per default, I assume that the user has a MongoDB database running. If your MongoDB server is running elsewhere, you can modify the access and credentials in the config file `data/config.json`.
 * All necessary Python packages can be installed in a [pipenv](https://docs.pipenv.org/) virtual environment (venv). The Pipfile is located in [env/Pipfile](env/Pipfile). In order to setup the venv:
     * Install [pipenv](https://docs.pipenv.org/).
     * Go to the 'env/' directory and execute `pipenv install`.
@@ -51,7 +51,7 @@ Quick summary of the datasets:
 * **Station dataset**: monthly station measurements for temperature (i.e. our _“ground truth”_) come from the [GHCN](https://www.ncdc.noaa.gov/ghcn-daily-description) dataset. More details are given in the [README_GHCN_MONTHLY.md](README_GHCN_MONTHLY.md) file.
 * **Grid dataset**: monthly sea-ice concentration, stratospheric circulation (Z70 hPa), sea surface temperature and other variables are provided by the [ERA5T](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=overview) re-analysis dataset. More details are given in the [README_ERA5T_MONTHLY.md](README_ERA5T_MONTHLY.md) file.
 
-Given that you already have a MongoDB database running locally and with all required python package installed (see [Prerequisites](#prerequisites)), source and ingest (or update) both datasets by executing the following commands:
+Given that you already have a MongoDB instance running (per default locally) and with all required python package installed (see [Prerequisites](#prerequisites)), source and ingest (or update) both datasets by executing the following commands:
 
 1. `cd env/ && pipenv shell && cd ..`
 2. `python script/01_ghcn_monthly_feed.py`
@@ -154,6 +154,7 @@ Code:
 * input.csv: _contains the list of countries where the analysis is to be conducted_
 
 ## (5) To do list:
+* Latest stand: see script/01_ghcn...
 * Adapt, improve and update the data feeds for ERA-5 (instead of ERA-interim) and GHCN.
 * Seek for an alternative re-analysis dataset with an shorter prodcution latency as ERA-5
 * Go beyond linear regressions and involve more advanced machine learning method for prediction.

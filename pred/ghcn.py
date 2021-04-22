@@ -1,11 +1,13 @@
 import logging
 import os
-from os import listdir
 import pandas as pd
 import datetime
 from pymongo import MongoClient
 import pymongo
 import numpy as np
+from typing import List
+from json import loads
+import logging
 
 
 class GHCN():
@@ -17,15 +19,26 @@ class GHCN():
     remote_data = 'https://www1.ncdc.noaa.gov/pub/data/ghcn/v4/ghcnm.tavg.latest.qcu.tar.gz'
 
     def __init__(self,
-                 downloadDir,
-                 logfilename):
+                 config_file: str) -> None:
         '''
-        downloadDir -- string Path where the GHCN data is saved
-        '''
+        Initializes an instance of the "MIP_to_Mongo" class.
 
-        self.downloadDir = downloadDir
-        self.logfilename = logfilename
- 
+        Parameters
+        ----------
+        config_file : str
+            Path to the JSON file holding the MongoDB credentials and
+            the paths where to store the data and logfile.
+
+        Returns
+        -------
+        None
+            The statement is executed without return value.
+        '''
+       with open("../data/config.json", "r", encoding="utf-8") as config:
+            cfg = loads(config.read())
+        self.downloadDir = cfg['download_dir'] + 'GHCNM/'
+        self.logfilename = cfg['download_dir'] + 'ghcnm.log'
+
         # Logging setup
         # Remove all handlers associated with the root logger object
         for handler in logging.root.handlers[:]:
@@ -38,11 +51,20 @@ class GHCN():
             level=logging.INFO)
         logging.info('GHCN MONTHLY: job started')
 
-    def wgetData(self):
+    def wgetData(self) -> None:
         '''
         Downloads the GHCN monthly data using wget.
         This downloads both the station metadata and
         the monthly data itself.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The statement is executed without return value.
         '''
         wget_command = 'wget -nH --cut-dirs=100 -np -P %s -m %s && tar -xzf %s/ghcnm.tavg.latest.qcu.tar.gz -C %s' % (
             self.downloadDir,
@@ -53,12 +75,26 @@ class GHCN():
         os.system(wget_command)
         logging.info('Executing: %s DONE' % wget_command)
 
-    @staticmethod
-    def _createMongoConn():
+    @ staticmethod
+    def _createMongoConn(cfg: dict) --> dict:
+        '''
+        Establish a connection to MongoDB.
+        
+        Parameters
+        ----------
+        cfg : dict
+            Dictionary containing credentials and GHCN database name.
+        
+        Returns
+        -------
+        Dict
+            A dictionary containing access MongoClient and access to
+            GHCNM collections.
+        '''
         # MongoDB connections
-        mongo_host_local = 'mongodb://localhost:27017/'
-        mg = MongoClient(mongo_host_local)
-        db_name = 'GHCNM'
+        mong_string = cfg['db_host'] + ':' + cfg['db_port']
+        mg = MongoClient(mongo_string)
+        db_name = cfg['db_GHCN_name']
         col_sta = mg[db_name]['stations']
         col_dat = mg[db_name]['data']
         return({'con': mg,
@@ -94,14 +130,14 @@ class GHCN():
 
         df = pd.DataFrame({'path': fl})
         df = df.assign(filedate=list(map(
-            lambda x: datetime.datetime.strptime(x[-16:-8], '%Y%m%d'),
+            lambda x: datetime.datetime.strptime(x[-16: -8], '%Y%m%d'),
             df['path'])))
         # Pick the newest file
         df = df.sort_values(by='filedate',
                             ascending=False).reset_index(drop=True)
         path = df.loc[0, 'path']
         return(path)
- 
+
     def upsertStationCollection(self):
         '''
         Once the metadta file for stations has been downloaded
@@ -110,17 +146,17 @@ class GHCN():
         '''
         # Country metadata
         country_df = pd.read_fwf('%sghcnm-countries.txt' % self.downloadDir,
-                                 colspecs=[[0,2], [3, 500]],
+                                 colspecs=[[0, 2], [3, 500]],
                                  header=None,
                                  names=['country_id', 'country'])
         # Get station metadata
         path = self.findNewestFile(pattern='.inv')
         sta_df = pd.read_fwf(path,
-                             colspecs=[[0,11], [0,2],[2,8],[13, 20],
-                                       [24, 30], [31,37], [38,69],
-                                       [90, 106],[106,107]],
+                             colspecs=[[0, 11], [0, 2], [2, 8], [13, 20],
+                                       [24, 30], [31, 37], [38, 69],
+                                       [90, 106], [106, 107]],
                              header=None,
-                             names=['station_id','country_id',
+                             names=['station_id', 'country_id',
                                     'wmo_id', 'lat', 'lon', 'elev',
                                     'name', 'landcover', 'popclass'])
         sta_df = pd.merge(sta_df, country_df, on='country_id')
@@ -134,12 +170,12 @@ class GHCN():
                 'loc': {'type': 'Point',
                         'coordinates': [float(sta_df.lon[i]),
                                         float(sta_df.lat[i])]},
-                       'country': sta_df.country[i],
-                       'country_id': str(sta_df.country_id[i]),
-                       'wmo_id': str(sta_df.wmo_id[i]),
-                       'elev': sta_df.elev[i],
-                       'name': sta_df.name[i],
-                       'landcover': sta_df.landcover[i],
+                'country': sta_df.country[i],
+                'country_id': str(sta_df.country_id[i]),
+                'wmo_id': str(sta_df.wmo_id[i]),
+                'elev': sta_df.elev[i],
+                'name': sta_df.name[i],
+                'landcover': sta_df.landcover[i],
                 'popclass': sta_df.popclass[i]})
 
             col_sta.update_one(
@@ -164,7 +200,7 @@ class GHCN():
                                        [67, 72], [75, 80], [83, 88],
                                        [91, 96], [99, 104], [107, 112]],
                              header=None,
-                             #nrows=20,
+                             # nrows=20,
                              names=['station_id', 'year', 'variable',
                                     '1', '2', '3', '4', '5', '6',
                                     '7', '8', '9', '10', '11', '12'])
@@ -193,6 +229,7 @@ def main():
     '''
     Main code to run in script mode
     '''
+
 
 if __name__ == '__main__':
     main()

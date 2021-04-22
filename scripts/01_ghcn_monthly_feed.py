@@ -1,19 +1,17 @@
 import logging
-import os
-from os import listdir
-import pandas as pd
-import datetime
-from pymongo import MongoClient
-import pymongo
-import numpy as np
+import sys
+
 
 def main():
     '''
     Main code to run in script mode
     '''
-    G = GHCN(downloadDir='/home/dmasson/data/GHCNM/',
-             logfilename='/home/dmasson/temp/ghcnm.log')
+    sys.path.append('../')
+    from pred.ghcn import GHCN
+
+    G = GHCN(config_file='../data/config.json')
     G.wgetData()
+    # HERE ------- !!!
     G.insertDataCollection()
 
     historical = False
