@@ -1,9 +1,9 @@
 {
-    "db_host": "mongodb://localhost",
+    "db_host": "localhost",
     "db_port": "27017",
     "db_database": ["admin", "local", "config"],
-    "db_user": ".....",
-    "db_password": "....",
+    "db_user": "",
+    "db_password": "",
     "download_dir": "/home/dmasson/data/",
-    "db_GHCN_name": "GHCNM",
+    "db_GHCN_name": "GHCNM"
 }

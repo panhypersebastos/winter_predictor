@@ -1,21 +1,25 @@
+# Copyright (C) David Masson <panhypersebastos@gmail.com>
 import logging
 import sys
 
 
-def main():
+def main(first_insertion: bool) -> None:
     '''
-    Main code to run in script mode
+    Main code to run in script mode.
+
+    Parameters
+    ----------
+    first_insertion : bool
+        Is this the first insertion? If yes, a station collection
+        needs to be created.
     '''
     sys.path.append('../')
     from pred.ghcn import GHCN
 
     G = GHCN(config_file='../data/config.json')
     G.wgetData()
-    # HERE ------- !!!
     G.insertDataCollection()
-
-    historical = False
-    if historical is True:
+    if first_insertion is True:
         # Generally done for the first insertion
         # Create the station collection (only needed once)
         G.upsertStationCollection()
@@ -27,4 +31,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(first_insertion=True)

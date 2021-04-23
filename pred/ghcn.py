@@ -1,3 +1,4 @@
+# Copyright (C) David Masson <panhypersebastos@gmail.com>
 import logging
 import os
 import pandas as pd
@@ -34,10 +35,11 @@ class GHCN():
         None
             The statement is executed without return value.
         '''
-       with open("../data/config.json", "r", encoding="utf-8") as config:
+        with open("../data/config.json", "r", encoding="utf-8") as config:
             cfg = loads(config.read())
         self.downloadDir = cfg['download_dir'] + 'GHCNM/'
         self.logfilename = cfg['download_dir'] + 'ghcnm.log'
+        self.cfg = cfg
 
         # Logging setup
         # Remove all handlers associated with the root logger object
@@ -46,7 +48,7 @@ class GHCN():
         if os.path.exists(self.logfilename):
             os.remove(self.logfilename)
         logging.basicConfig(
-            filename=logfilename,
+            filename=self.logfilename,
             format='%(asctime)s %(message)s',
             level=logging.INFO)
         logging.info('GHCN MONTHLY: job started')
@@ -76,15 +78,15 @@ class GHCN():
         logging.info('Executing: %s DONE' % wget_command)
 
     @ staticmethod
-    def _createMongoConn(cfg: dict) --> dict:
+    def _createMongoConn(cfg: dict) -> dict:
         '''
         Establish a connection to MongoDB.
-        
+
         Parameters
         ----------
         cfg : dict
             Dictionary containing credentials and GHCN database name.
-        
+
         Returns
         -------
         Dict
@@ -92,7 +94,11 @@ class GHCN():
             GHCNM collections.
         '''
         # MongoDB connections
-        mong_string = cfg['db_host'] + ':' + cfg['db_port']
+        if cfg['db_user'] == '' and cfg['db_password'] == '':
+            mongo_string = 'mongodb://' + cfg['db_host'] + ':' + cfg['db_port']
+        else:
+            mongo_string = 'mongodb://' + f'{cfg["db_user"]}:{cfg["db_password"]}' +\
+                cfg['db_host'] + ':' + cfg['db_port']
         mg = MongoClient(mongo_string)
         db_name = cfg['db_GHCN_name']
         col_sta = mg[db_name]['stations']
@@ -101,22 +107,54 @@ class GHCN():
                 'col_sta': col_sta,
                 'col_dat': col_dat})
 
-    def createStationIndexing(self):
+    def createStationIndexing(self) -> None:
         '''
         Add indexes
         Warning: geospatial index require -180, +180 longitudes
-        '''
-        col_sta = self._createMongoConn()['col_sta']
-        col_sta.create_index([("station_id", pymongo.ASCENDING)])
-        col_sta.create_index([("loc", pymongo.GEOSPHERE)])
 
-    def createDataIndexing(self):
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The statement is executed without return value.
+        '''
+        col_sta = self._createMongoConn(cfg=self.cfg)['col_sta']
+        idx = col_sta.index_information()
+        should_idx = ['_id_', 'station_id', 'loc']
+        passed = all(item in list(idx.keys())for item in should_idx)
+        if not passed:
+            col_sta.create_index([("station_id", pymongo.ASCENDING)])
+            col_sta.create_index([("loc", pymongo.GEOSPHERE)])
+            print('Station indexes created.')
+        else:
+            print('Station indexes already exist.')
+
+    def createDataIndexing(self) -> None:
         '''
         Add indexes for the station data collection
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The statement is executed without return value.
         '''
-        col_dat = self._createMongoConn()['col_dat']
-        col_dat.create_index([("station_id", pymongo.ASCENDING)])
-        col_dat.create_index([("year", pymongo.DESCENDING)])
+        col_dat = self._createMongoConn(cfg=self.cfg)['col_dat']
+        idx = col_dat.index_information()
+        should_idx = ['_id_', 'station_id', 'year']
+        passed = all(item in list(idx.keys())for item in should_idx)
+        if not passed:
+            col_dat.create_index([("station_id", pymongo.ASCENDING)])
+            col_dat.create_index([("year", pymongo.DESCENDING)])
+            print('Station data indexes created.')
+        else:
+            print('Station data indexes already exist.')
 
     def findNewestFile(self, pattern):
         '''
@@ -138,11 +176,20 @@ class GHCN():
         path = df.loc[0, 'path']
         return(path)
 
-    def upsertStationCollection(self):
+    def upsertStationCollection(self) -> None:
         '''
         Once the metadta file for stations has been downloaded
         (generally in the same wget step as for the observations),
         insert station metadata in the station collection.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The statement is executed without return value.
         '''
         # Country metadata
         country_df = pd.read_fwf('%sghcnm-countries.txt' % self.downloadDir,
@@ -162,7 +209,7 @@ class GHCN():
         sta_df = pd.merge(sta_df, country_df, on='country_id')
 
         # Upsert into MongoDB
-        col_sta = self._createMongoConn()['col_sta']
+        col_sta = self._createMongoConn(cfg=self.cfg)['col_sta']
 
         def upsertStation(i):
             newdoc = dict({
@@ -183,12 +230,23 @@ class GHCN():
                 update=dict({'$set': newdoc}), upsert=True)
         void = list(map(upsertStation, np.arange(sta_df.shape[0])))
 
-    def insertDataCollection(self):
+    def insertDataCollection(self) -> None:
         '''
         Insert the csv table "as is".
-        We anyway need to group by month later in the analysis.
         This code delete any existing data and re-insert it.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The statement is executed without return value.
         '''
+
+        # Check indexes; if do not exsit, create index
+
         # Read the most recent file
         fnew = self.findNewestFile(pattern='.dat')
         logging.info('Inserting %s', fnew)
@@ -219,7 +277,7 @@ class GHCN():
         dat_df['12'] = dat_df['12']/100
         # Insert the table above "as is".
         # We anyway need to group by month later in the analysis.
-        col_dat = self._createMongoConn()['col_dat']
+        col_dat = self._createMongoConn(sfg=self.cfg)['col_dat']
         # Delete and re-insert
         col_dat.delete_many(filter={})
         col_dat.insert_many(dat_df.to_dict('records'))
