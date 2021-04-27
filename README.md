@@ -19,7 +19,7 @@ The project consists of three phases:
 ## Prerequisites
 </a>
 
-* Per default, I assume that the user has a MongoDB database running. If your MongoDB server is running elsewhere, you can modify the access and credentials in the config file `data/config.json`.
+* Per default, it is assumed that the user has access to a running MongoDB database service. Please review and modify the access configuration file at `data/config.json`. Access Control can be defined in Mongo shell following [these](https://docs.mongodb.com/manual/tutorial/enable-authentication/) instructions.
 * All necessary Python packages can be installed in a [pipenv](https://docs.pipenv.org/) virtual environment (venv). The Pipfile is located in [env/Pipfile](env/Pipfile). In order to setup the venv:
     * Install [pipenv](https://docs.pipenv.org/).
     * Go to the 'env/' directory and execute `pipenv install`.
@@ -48,7 +48,7 @@ Figure 3: Third principal component of sea surface temperature (SST). This mode 
 
 Quick summary of the datasets:
 
-* **Station dataset**: monthly station measurements for temperature (i.e. our _“ground truth”_) come from the [GHCN](https://www.ncdc.noaa.gov/ghcn-daily-description) dataset. More details are given in the [README_GHCN_MONTHLY.md](README_GHCN_MONTHLY.md) file.
+* **Station dataset**: monthly station measurements for average monthly temperature (i.e. our _“ground truth”_) come from the [GHCN](https://www.ncdc.noaa.gov/ghcn-daily-description) dataset. More details are given in the [README_GHCN_MONTHLY.md](README_GHCN_MONTHLY.md) file.
 * **Grid dataset**: monthly sea-ice concentration, stratospheric circulation (Z70 hPa), sea surface temperature and other variables are provided by the [ERA5T](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=overview) re-analysis dataset. More details are given in the [README_ERA5T_MONTHLY.md](README_ERA5T_MONTHLY.md) file.
 
 Given that you already have a MongoDB instance running (per default locally) and with all required python package installed (see [Prerequisites](#prerequisites)), source and ingest (or update) both datasets by executing the following commands:
@@ -74,7 +74,7 @@ In MongoDB, the data is stored in the following two collections:
 
 For all details, check [README_GHCN_MONTHLY.md](README_GHCN_MONTHLY.md)
 
-The [GHCN](https://www.ncdc.noaa.gov/data-access/land-based-station-data/land-based-datasets/global-historical-climatology-network-ghcn) database contains two collections, one recording the location and the name of the stations, one other containing the time series. A typical station document in MongoDB looks like this:
+The [GHCN](https://www.ncdc.noaa.gov/data-access/land-based-station-data/land-based-datasets/global-historical-climatology-network-ghcn) database contains two collections, one recording the location and the name of the stations, one other containing the time series of monthly average temperature (TAVG). A typical station document in MongoDB looks like this:
 
 ```
 {'_id': ObjectId('...'), 
@@ -124,7 +124,17 @@ A typical re-analysis monthly data document has indexes put on the date and grid
 'z70': 168316.99}
 ```
 
+The stored variable are:
 
+| Abbreviation | Variable name|
+|:-------------|:-------------|
+| ci | [Sea-ice cover](https://apps.ecmwf.int/codes/grib/param-db?id=31) (0-1)|
+| sp | [Surface pressure](https://apps.ecmwf.int/codes/grib/param-db?id=134) (Pa) |
+| sst | [Sea surface temperature](https://apps.ecmwf.int/codes/grib/param-db?id=34) (K) |
+| z70 | [Geopotential height at 70 hPa height](https://apps.ecmwf.int/codes/grib/param-db?id=129) (m²/s²)|
+
+
+**Important**: You need to use ECMWF's API in order to download ERA5 data. Read [CDS API documentations](https://cds.climate.copernicus.eu/api-how-to) for more details. In short, a (free) registration to Copernicus and the setting of ECMWF's API are required. Both steps are easily done. Read the [README_ERA5T_MONTHLY.md](README_ERA5T_MONTHLY.md) file for more details.
 
 
 ## (2) Construction of the predictors

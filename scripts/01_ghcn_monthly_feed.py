@@ -3,21 +3,24 @@ import logging
 import sys
 
 
-def main(first_insertion: bool) -> None:
+def main(download: bool, first_insertion: bool) -> None:
     '''
     Main code to run in script mode.
 
     Parameters
     ----------
+    download : bool
+        Should the data be downloaded ?
     first_insertion : bool
         Is this the first insertion? If yes, a station collection
-        needs to be created.
+        will be created.
     '''
     sys.path.append('../')
     from pred.ghcn import GHCN
 
     G = GHCN(config_file='../data/config.json')
-    G.wgetData()
+    if download is True:
+        G.wgetData()
     G.insertDataCollection()
     if first_insertion is True:
         # Generally done for the first insertion
@@ -31,4 +34,4 @@ def main(first_insertion: bool) -> None:
 
 
 if __name__ == '__main__':
-    main(first_insertion=True)
+    main(download=True, first_insertion=True)

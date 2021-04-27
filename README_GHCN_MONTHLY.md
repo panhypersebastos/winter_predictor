@@ -2,13 +2,7 @@
 
 **Goal**: Load and update the GHCN station data at the monthly time scale.
 
-The station data is sourced and ingested into MongoDB using the code in `pred/01_ghcn_monthly_feed.py`. It updates the station data to the latest state. If necessary, the class can be tested in `dev/ghcn_monthly_class_test.ipynb`. The notebook `dev/ghcn_monthly_data.ipynb` once served as a preliminary sketch of the feed.
-
-
-Collection created in MongoDB:
-
-* Database name: __GHCNM__
-* Station collection: __stations__
+The station data is sourced and ingested into MongoDB using the code in `scripts/01_ghcn_monthly_feed.py`. It updates the station data to the latest state.
 
 ## DATA SOURCE
 

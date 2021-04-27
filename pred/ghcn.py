@@ -94,12 +94,13 @@ class GHCN():
             GHCNM collections.
         '''
         # MongoDB connections
-        if cfg['db_user'] == '' and cfg['db_password'] == '':
-            mongo_string = 'mongodb://' + cfg['db_host'] + ':' + cfg['db_port']
-        else:
-            mongo_string = 'mongodb://' + f'{cfg["db_user"]}:{cfg["db_password"]}' +\
-                cfg['db_host'] + ':' + cfg['db_port']
-        mg = MongoClient(mongo_string)
+        db_host = cfg['db_host']
+        db_user = cfg['db_user']
+        db_password = cfg['db_password']
+        db_port = cfg['db_port']
+        con_string = f"mongodb://{db_user}:" + \
+                     f"{db_password}@{db_host}:{db_port}/?authSource=admin"
+        mg = MongoClient(con_string)
         db_name = cfg['db_GHCN_name']
         col_sta = mg[db_name]['stations']
         col_dat = mg[db_name]['data']
@@ -277,7 +278,7 @@ class GHCN():
         dat_df['12'] = dat_df['12']/100
         # Insert the table above "as is".
         # We anyway need to group by month later in the analysis.
-        col_dat = self._createMongoConn(sfg=self.cfg)['col_dat']
+        col_dat = self._createMongoConn(cfg=self.cfg)['col_dat']
         # Delete and re-insert
         col_dat.delete_many(filter={})
         col_dat.insert_many(dat_df.to_dict('records'))
