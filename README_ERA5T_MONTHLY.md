@@ -2,7 +2,7 @@
 
 ## General Data description
 
-Among several possible configurarions, ERA5T is sourced with the following setting:
+ERA5T is sourced in the following setup:
 
 | Topic | Description|
 |:-------------|:-------------|
@@ -15,7 +15,7 @@ Among several possible configurarions, ERA5T is sourced with the following setti
 |Update frequency| daily, with a lag of ~5 days, see paragraph below|
 |Available variables| see [this table](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels?tab=overview)|
 
-Among a vast plethora of possible variables (see [here](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels?tab=overview) for example and [here](https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation) for the variable descriptions), following variables were stored:
+Among a plethora of available variables (see [here](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels?tab=overview) for an example and [here](https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation) for the variable descriptions), following variables were stored:
 
 
 | Abbreviation | Variable name|

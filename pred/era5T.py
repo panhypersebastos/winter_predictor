@@ -4,7 +4,6 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import cdsapi
 import logging
-from cputils.mongo import connect_mongo
 import os
 import os.path
 import pymongo
@@ -13,41 +12,61 @@ from multiprocessing.pool import ThreadPool
 from multiprocessing_logging import install_mp_handler
 import pandas as pd
 import itertools
+from json import loads
 
 
 class ERA5T():
     '''
-    Get ERA5 data using ECMWF's API (CDSAPI).
-    This modules downloads hourly data,
-    aggregate it into daily data and
-    ingest it into MongoDB.
-    Main steps:
-    - get remote hourly data for a given month using CDSAPI
-    - aggregate houlry to daily
-    - concatenate netCDF files into one yearly file
-    - insert it into the data collection with the following structure:
-      {'_id': ObjectId('5d64a634bf7df96b6d6de5fa'),
-       'id_grid': 155333,
-       'year': 2001,
-       't2m: [-1.2, -3.5, 0.5, 5, ...],
-       'tp': [0, 0, 4, 5, 6.5, 0, ...]}
+    Class for downloading, ingesting and updating
+    ERA5T monthly data.
     '''
-    ncpu = 6
+
+    start_era5t = datetime(year=1979, month=1, day=1)
 
     def __init__(self,
-                 downloadDir,
-                 logfilename,
-                 experimental_setting,
-                 historical,
-                 download):
+                 config_file: str,
+                 ncpu: int = 6,
+                 download: bool = False,
+                 ) -> None:
+        # downloadDir,
+        # logfilename,
+        # experimental_setting,
+        # historical,
+        # download) -> None:
+        '''
+        Initializes an instance of the "ERA5T" class.
 
-        self.downloadDir = downloadDir
-        self.logfilename = logfilename
-        self.historical = historical
-        self.download = download
-        self.lsm = None  # Land mask
+        Parameters
+        ----------
+        config_file : str
+            Path to the JSON file holding the MongoDB credentials and
+            the paths where to store the data and logfile.
+        ncpu : int
+            Number of parallel processes. Per default 4 threads.
+        download : bool
+            Shall files be downloaded or just work with files already present.
+            Default is False.
+
+        Returns
+        -------
+        None
+            The statement is executed without return value.
+        '''
+        with open("../data/config.json", "r", encoding="utf-8") as config:
+            cfg = loads(config.read())
+        self.downloadDir = cfg['download_dir'] + 'ERA5T/'
+        self.logfilename = cfg['download_dir'] + 'era5t.log'
+        self.cfg = cfg
 
         self.lastDate = self.getLastDate()
+
+        #  Shall all historical files be downloaded? If True:
+        #  * either the database is initialized for the first time
+        #  * or you want to update already inserted data.
+        self.historical = (self.lastDate == self.start_era5t)
+        self.lsm = None  # Land mask
+        self.download = download
+
         # In order to avoid loading complete year, add one day
         # The past 3 months are always up-2-date
         self.newday = self.lastDate + \
@@ -61,27 +80,44 @@ class ERA5T():
         if os.path.exists(self.logfilename):
             os.remove(self.logfilename)
         logging.basicConfig(
-            filename=logfilename,
+            filename=self.logfilename,
             format='%(asctime)s %(message)s',
             level=logging.INFO)
         logging.info('ERA5T Job started')
 
-        # Get all grid_ids
-        self.getAllGridIds()
+        # HERE !!!
+        # # Get all grid_ids
+        # self.getAllGridIds()
 
-    @staticmethod
-    def _createMongoConn():
+    @ staticmethod
+    def _createMongoConn(cfg: dict) -> dict:
+        '''
+        Establish a connection to MongoDB.
+
+        Parameters
+        ----------
+        cfg : dict
+            Dictionary containing credentials and ERA5T database name.
+
+        Returns
+        -------
+        Dict
+            A dictionary containing access MongoClient and access to
+            ERA5T collections.
+        '''
         # MongoDB connections
-        # con = connect_mongo(prod=operator.not_(experimental_setting),
-        #                    rw=True)
-
-        cfg_MONGO_CLIENT = MongoClient('mongodb://localhost:27017/')
-
-        con = cfg_MONGO_CLIENT
-        col_grid = con['ECMWF']['ERA5_grid']
-        col_dat = con['ECMWF']['ERA5_data']
-        return({'con': con,
-                'col_grid': col_grid,
+        db_host = cfg['db_host']
+        db_user = cfg['db_user']
+        db_password = cfg['db_password']
+        db_port = cfg['db_port']
+        con_string = f"mongodb://{db_user}:" + \
+                     f"{db_password}@{db_host}:{db_port}/?authSource=admin"
+        mg = MongoClient(con_string)
+        db_name = cfg['db_ERA5T_name']
+        col_grid = mg[db_name]['grid']
+        col_dat = mg[db_name]['data']
+        return({'con': mg,
+                'col_sta': col_grid,
                 'col_dat': col_dat})
 
     def getLandMask(self):
@@ -119,7 +155,8 @@ class ERA5T():
         col_grid = con['ECMWF']['ERA5_grid']
         self.all_ids = col_grid.distinct(key='id_grid')
 
-    def getFiles(self, year, month):  # CONTINUE HERE !!!
+    def getFiles(self, year, month):
+        # CONTINUE HERE !!!
         # Get inspiration from https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=form
 
         # get MULTIPLE VARIABLES :
@@ -163,14 +200,15 @@ class ERA5T():
         logging.info("PROCESSING %s..." % (filename03))
         path03 = '%s/downloads/%s' % (self.downloadDir, filename03)
         server.retrieve({'reanalysis-era5-pressure-levels-monthly-means',
-                         'format': 'netcdf',
-                         'variable': 'geopotential',
-                         'pressure_level': '700',
-                         'year': int(year),
-                         'month': int(month),
-                         'time': '00:00',
-                         'product_type': 'monthly_averaged_reanalysis',
-                         },
+                         {
+                             'format': 'netcdf',
+                             'variable': 'geopotential',
+                             'pressure_level': '700',
+                             'year': int(year),
+                             'month': int(month),
+                             'time': '00:00',
+                             'product_type': 'monthly_averaged_reanalysis'
+                         }},
                         path)
 
         #     "class": "ei",
@@ -322,11 +360,19 @@ class ERA5T():
                                ("id_grid", pymongo.ASCENDING)])
         logging.info('Indexes added for the grid collection')
 
-    def getLastDate(self):
+    def getLastDate(self) -> datetime:
         '''
-        Get the last stored date from MongoDB
+        Get the last date of ERA5T data stored in MongoDB.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        datetime
         '''
-        con = self._createMongoConn(self.experimental_setting)
+        con = self._createMongoConn(cfg=self.cfg)
         col_dat = con['col_dat']
         n = col_dat.count()
         if n != 0:
@@ -337,7 +383,7 @@ class ERA5T():
 
         else:
             logging.info('No data present in MongoDB yet.')
-            last = datetime(year=1979, month=1, day=1)
+            last = self.start_era5t
         return(last)
 
     def createRow(self, doc, df_missing_dates, DS):
@@ -601,6 +647,7 @@ def main():
     '''
     Main code to run in script mode
     '''
+
 
 if __name__ == '__main__':
     main()

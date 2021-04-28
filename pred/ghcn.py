@@ -6,9 +6,7 @@ import datetime
 from pymongo import MongoClient
 import pymongo
 import numpy as np
-from typing import List
 from json import loads
-import logging
 
 
 class GHCN():
@@ -22,7 +20,7 @@ class GHCN():
     def __init__(self,
                  config_file: str) -> None:
         '''
-        Initializes an instance of the "MIP_to_Mongo" class.
+        Initializes an instance of the "GHCN" class.
 
         Parameters
         ----------
