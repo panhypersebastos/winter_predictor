@@ -13,6 +13,7 @@ from multiprocessing_logging import install_mp_handler
 import pandas as pd
 import itertools
 from json import loads
+from typing import List
 
 
 class ERA5T():
@@ -63,8 +64,8 @@ class ERA5T():
         #  Shall all historical files be downloaded? If True:
         #  * either the database is initialized for the first time
         #  * or you want to update already inserted data.
-        self.historical = (self.lastDate == self.start_era5t)
-        self.lsm = None  # Land mask
+        # self.historical = (self.lastDate == self.start_era5t)
+        # self.lsm = None  # Land mask
         self.download = download
 
         # In order to avoid loading complete year, add one day
@@ -72,6 +73,8 @@ class ERA5T():
         self.newday = self.lastDate + \
             relativedelta(days=1) - \
             relativedelta(months=3)
+        if self.newday < self.start_era5t:
+            self.newday = self.start_era5t
 
         # Logging setup
         # Remove all handlers associated with the root logger object
@@ -120,10 +123,12 @@ class ERA5T():
                 'col_sta': col_grid,
                 'col_dat': col_dat})
 
-    def getLandMask(self):
+    def getLandMask(self) -> None:
         '''
         This function downloads the ERA5 land mask
-        and is used only once.
+        and is used only once. It is relavant if the grid is limited to land
+        area and is used in the function "createLandGridCollection".
+        (Function not relevant for the winter predictor project).
         '''
         # Look there:
         # https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels-monthly-means?tab=form
@@ -317,12 +322,14 @@ class ERA5T():
             x = x + 360
         return(x)
 
-    def createGridCollection(self):
+    def createLandGridCollection(self) -> None:
         '''
-        Creation of the grid collection
+        Creation of a grid collection limited to land surface,
+        excluding sea surface.
+        (Function not relevant for the winter predictor project).
         '''
         logging.info('INGESTION of the grid collection started...')
-        # Open ERA5 land mask
+        # Open ERA5 land mask (downloaded with the "getLandMask" function.)
         f = '%s/land_sea_mask.nc' % self.downloadDir
         ds = xr.open_dataset(f)
         # Limit the grid collection to land only and exclude Antarctica
@@ -553,9 +560,12 @@ class ERA5T():
                     f.startswith('era5_%s' % year) and f.endswith('.nc')]
         return(nc_local)
 
-    def processYears(self, years):
+    def processYears(self, years: List(int)) -> None:
         '''
-        years -- list of years to (re-)process
+        Parameters
+        ----------
+        years : List(int)
+            list of years to (re-)process
         '''
         for year in years:
             self.year = int(year)
@@ -564,13 +574,14 @@ class ERA5T():
             if self.download is True:
                 today = datetime.today()
                 if year == today.year:
-                    months = list(
-                        np.arange(self.newday.month, today.month + 1))
+                    months = np.arange(self.newday.month,
+                                       today.month + 1).tolist()
                 else:
-                    months = list(np.arange(self.newday.month, 12 + 1))
+                    months = np.arange(1, 12 + 1).tolist()
 
                 # Are these months present as nc files ?
                 # List this year's nc files
+                # HERE !!! use a try-error:
                 ncfiles = self.listNetCDFfiles(year)
                 fmonths_present = sorted(list(
                     map(lambda x: int(x[x.find("-")+1:x.find(".nc")]),
