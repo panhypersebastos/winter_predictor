@@ -22,7 +22,7 @@ def main(download: bool) -> None:
     sys.path.append('../')
     from pred.era5T import ERA5T
 
-    ERA = ERA5T(config_file='../data/config.json', ncpu=6, download=True)
+    ERA = ERA5T(config_file='../data/config.json', nthreads=6, download=True)
     years = np.arange(ERA.newday.year, datetime.now().year+1).tolist()
     logging.info('Updating MongoDB from  %s' % ERA.newday)
     ERA.processYears(years=years)

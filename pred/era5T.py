@@ -26,7 +26,7 @@ class ERA5T():
 
     def __init__(self,
                  config_file: str,
-                 ncpu: int = 6,
+                 nthreads: int = 6,
                  download: bool = False,
                  ) -> None:
         # downloadDir,
@@ -42,7 +42,7 @@ class ERA5T():
         config_file : str
             Path to the JSON file holding the MongoDB credentials and
             the paths where to store the data and logfile.
-        ncpu : int
+        nthreads : int
             Number of parallel processes. Per default 4 threads.
         download : bool
             Shall files be downloaded or just work with files already present.
@@ -88,7 +88,6 @@ class ERA5T():
             level=logging.INFO)
         logging.info('ERA5T Job started')
 
-        # HERE !!!
         # # Get all grid_ids
         # self.getAllGridIds()
 
@@ -160,8 +159,11 @@ class ERA5T():
         col_grid = con['ECMWF']['ERA5_grid']
         self.all_ids = col_grid.distinct(key='id_grid')
 
-    def getFiles(self, year, month):
-        # CONTINUE HERE !!!
+    def getFiles(self, year: int, month: int) -> None:
+        '''
+        !!! HERE !!! work on the API query
+
+        '''
         # Get inspiration from https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=form
 
         # get MULTIPLE VARIABLES :
@@ -492,7 +494,7 @@ class ERA5T():
         #     global DS
         #     DS = ds_chunk
 
-        # p = ThreadPool(processes=self.ncpu, initializer=worker_initializer)
+        # p = ThreadPool(processes=self.nthreads, initializer=worker_initializer)
         # res = p.map(
         #     lambda x: self.createRow(x, self.df_missing_dates, DS),
         #     grid_docs)
@@ -549,22 +551,29 @@ class ERA5T():
             res = col_grid.find(geoqry, {'_id': 0})
         return(res)
 
-    def listNetCDFfiles(self, year):
+    def listNetCDFfiles(self, year: int) -> List[str]:
         '''
-        List all the current year's nc files
-        ---
-        year -- int
+        List all nc files belonging to a given year.
+
+        Parameters
+        ----------
+        year : int
+
+        Returns
+        -------
+        List[str]
+            A list containing the path to the targeted nc files.
         '''
         nc_local = ['%s/%s' % (self.downloadDir, f) for f in
                     os.listdir(self.downloadDir) if
                     f.startswith('era5_%s' % year) and f.endswith('.nc')]
         return(nc_local)
 
-    def processYears(self, years: List(int)) -> None:
+    def processYears(self, years: List[int]) -> None:
         '''
         Parameters
         ----------
-        years : List(int)
+        years : List[int]
             list of years to (re-)process
         '''
         for year in years:
@@ -573,33 +582,36 @@ class ERA5T():
 
             if self.download is True:
                 today = datetime.today()
-                if year == today.year:
-                    months = np.arange(self.newday.month,
+                if (year == today.year):
+                    months = np.arange(1,
                                        today.month + 1).tolist()
                 else:
                     months = np.arange(1, 12 + 1).tolist()
 
                 # Are these months present as nc files ?
                 # List this year's nc files
-                # HERE !!! use a try-error:
-                ncfiles = self.listNetCDFfiles(year)
-                fmonths_present = sorted(list(
-                    map(lambda x: int(x[x.find("-")+1:x.find(".nc")]),
-                        ncfiles)))
-                fmonths_needed = list(np.arange(1, months[0]))
-                # Months needed but not present :
-                missing_months = list(set(fmonths_needed) -
-                                      (set(fmonths_present)))
-                months_to_download = list(
-                    set(missing_months + months))  # distinct months
+                try:
+                    ncfiles = self.listNetCDFfiles(year)
+                except FileNotFoundError:
+                    print(f'No ERA5T files downloaded for {year} yet.')
+                    months_to_download = months
+                else:
+                    # Probably a bug HERE !!! To be tested.
+                    fmonths_present = sorted(list(
+                        map(lambda x: int(x[x.find("-")+1:x.find(".nc")]),
+                            ncfiles)))
+                    fmonths_needed = months
+                    # Months needed but not present :
+                    missing_months = list(set(fmonths_needed) -
+                                          (set(fmonths_present)))
+                    months_to_download = list(
+                        set(missing_months + months))  # distinct months
 
                 logging.info(
-                    'Downloading files for YEAR %s....\n Months: %s' % (
-                        year,
-                        months_to_download))
+                    f'Downloading files for YEAR {year}....\n Months: {months_to_download}')
                 # Parralel download of monthly data:
                 install_mp_handler()
-                p = ThreadPool(processes=self.ncpu)
+                p = ThreadPool(processes=self.nthreads)
                 p.map(lambda m: self.getFile(year=year, month=m),
                       months_to_download)
                 p.close()
@@ -630,7 +642,7 @@ class ERA5T():
                     experimental_setting=self.experimental_setting)
                 col_grid = cons['col_grid']
 
-            p = ThreadPool(processes=self.ncpu,
+            p = ThreadPool(processes=self.nthreads,
                            initializer=worker_initializer00)
             res = p.map(
                 lambda e: self.exploreChunks(

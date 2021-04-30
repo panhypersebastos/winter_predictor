@@ -2,7 +2,7 @@
 
 ## General Data description
 
-ERA5T is a meteorological re-analysis dataset provided by the European Centre for Medium-Range Weather Forecasts ([ECMWF](https://www.ecmwf.int/)) [ERA5](https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation) dataset. The data is sourced with the following setup:
+ERA5T is a meteorological re-analysis dataset provided by the European Centre for Medium-Range Weather Forecasts ([ECMWF](https://www.ecmwf.int/)) [ERA5](https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation) dataset. In this project, the ERA5T data is sourced with the following setup:
 
 | Topic | Description|
 |:-------------|:-------------|
@@ -20,10 +20,12 @@ Among a plethora of available variables (see [here](https://cds.climate.copernic
 
 | Abbreviation | Variable name|
 |:-------------|:-------------|
-| ci | [Sea-ice cover](https://apps.ecmwf.int/codes/grib/param-db?id=31) (0-1)|
+| ci | [Sea-ice cover fraction](https://apps.ecmwf.int/codes/grib/param-db?id=31) (0-1)|
 | sp | [Surface pressure](https://apps.ecmwf.int/codes/grib/param-db?id=134) (Pa) |
 | sst | [Sea surface temperature](https://apps.ecmwf.int/codes/grib/param-db?id=34) (K) |
 | z70 | [Geopotential height at 70 hPa height](https://apps.ecmwf.int/codes/grib/param-db?id=129) (m²/s²)|
+
+The relevance of these variables for the project is described in detail in [Wang et al. (2017)](https://www.nature.com/articles/s41598-017-00353-y).
 
 
 ### More about the update frequency:
