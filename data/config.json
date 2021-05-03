@@ -4,7 +4,7 @@
     "db_database": ["admin", "local", "config"],
     "db_user": "panhypersebastos",
     "db_password": "mongopwd!",
-    "download_dir": "/home/dmasson/data/",
+    "download_dir": "/home/dmasson/data/wpred/",
     "db_GHCN_name": "GHCNM",
     "db_ERA5T_name": "ERA5T"
 }

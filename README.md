@@ -15,9 +15,16 @@ The project consists of three phases:
 1. Data download and ingestion into MongoDB.
 2. Construction of the predictors.
 3. Seasonal prediction.
-<a name="prerequisites">
-## Prerequisites
-</a>
+
+The project includes three directories, which are described below:
+
+* `pred`: contains the python classes necessary to download the station and reanalysis data.
+* `scripts`: contains the scipts to be executed.
+* `env`: contains the files necessary to create a virtual environment dedicated to this project.
+* `data`: contains various files, e.g., configuration, plots, etc.
+* `dev`: contains development files, e.g., jupyter-notebooks, etc.
+
+## Prerequisites <a name="prerequisites">
 
 * Per default, it is assumed that the user has access to a running MongoDB database service. Please review and modify the access configuration file at `data/config.json`. Access Control can be defined in Mongo shell following [these](https://docs.mongodb.com/manual/tutorial/enable-authentication/) instructions.
 * All necessary Python packages can be installed in a [pipenv](https://docs.pipenv.org/) virtual environment (venv). The Pipfile is located in [env/Pipfile](env/Pipfile). In order to setup the venv:
@@ -164,7 +171,7 @@ Code:
 * input.csv: _contains the list of countries where the analysis is to be conducted_
 
 ## (5) To do list:
-* Latest stand: era5T.py. Check whether it is z70hPa or z700hPa. Work on the download API funtion getFiles.
+* Latest stand: era5T.py. Work on the download API funtion getFiles. z70hPa worked. Try year 2021-04 to see what is the lasted month available. If OK, then go with other variables, ci, etc.
 * Adapt, improve and update the data feeds for ERA-5 (instead of ERA-interim) and GHCN.
 * Seek for an alternative re-analysis dataset with an shorter prodcution latency as ERA-5
 * Go beyond linear regressions and involve more advanced machine learning method for prediction.

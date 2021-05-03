@@ -59,8 +59,17 @@ class ERA5T():
         self.logfilename = cfg['download_dir'] + 'era5t.log'
         self.cfg = cfg
 
-        self.lastDate = self.getLastDate()
+        if os.path.exists(self.downloadDir) is False:
+            try:
+                from pathlib import Path
+                Path(self.downloadDir).mkdir(parents=True, exist_ok=True)
+            except OSError:
+                print("Creation of the directory %s failed" %
+                      self.downloadDir)
+            else:
+                print("Created the directory %s " % self.downloadDir)
 
+        self.lastDate = self.getLastDate()
         #  Shall all historical files be downloaded? If True:
         #  * either the database is initialized for the first time
         #  * or you want to update already inserted data.
@@ -147,7 +156,7 @@ class ERA5T():
                 'day': '01',
                 'time': '00:00'
             },
-            target='%s/land_sea_mask.nc' % self.downloadDir)
+            target=f'{self.downloadDir}land_sea_mask.nc')
 
         logging.info('Downloading land mask DONE.')
 
@@ -164,14 +173,15 @@ class ERA5T():
         !!! HERE !!! work on the API query
 
         '''
-        # Get inspiration from https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=form
+        # Get inspiration from :
+        # https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=form
 
         # get MULTIPLE VARIABLES :
-        filename01 = 'era5_file01_%s_%s.nc' % (year, month)
-        filename02 = 'era5_file02_%s_%s.nc' % (year, month)
-        filename03 = 'era5_file03_%s_%s.nc' % (year, month)
+        # filename01 = f'era5_file01_{year}_{month}.nc'
+        # filename02 = 'era5_file02_%s_%s.nc' % (year, month)
+        # filename03 = 'era5_file03_%s_%s.nc' % (year, month)
 
-        logging.info("PROCESSING %s..." % (filename01))
+        # logging.info("PROCESSING %s..." % (filename01))
         # Here comes variables like temperature ...
         # server.retrieve({
         #     "class": "ei",
@@ -204,19 +214,22 @@ class ERA5T():
         # })
 
         # Geopotentials heights data
-        logging.info("PROCESSING %s..." % (filename03))
-        path03 = '%s/downloads/%s' % (self.downloadDir, filename03)
-        server.retrieve({'reanalysis-era5-pressure-levels-monthly-means',
-                         {
-                             'format': 'netcdf',
-                             'variable': 'geopotential',
-                             'pressure_level': '700',
-                             'year': int(year),
-                             'month': int(month),
-                             'time': '00:00',
-                             'product_type': 'monthly_averaged_reanalysis'
-                         }},
-                        path)
+        filename = f'era5_file01_{year}_{month}.nc'
+        logging.info("PROCESSING %s..." % (filename))
+        path = f'{self.downloadDir}{filename}'
+
+        c = cdsapi.Client()
+        c.retrieve('reanalysis-era5-pressure-levels-monthly-means',
+                   {
+                       'format': 'netcdf',
+                       'variable': 'geopotential',
+                       'pressure_level': '70',
+                       'year': int(year),
+                       'month': int(month),
+                       'time': '00:00',
+                       'product_type': 'monthly_averaged_reanalysis'
+                   },
+                   path)
 
         #     "class": "ei",
         #     "dataset": "interim",
