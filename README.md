@@ -33,7 +33,7 @@ The project includes three directories, which are described below:
     * In order to activate the venv, execute `pipenv shell` from the `env/` directory.
 
 ## Scientific background
-This work is based on the work of [Wang et al. (2017)](https://www.nature.com/articles/s41598-017-00353-y). The authors have shown that autumn patterns of sea-ice concentration (SIC), stratospheric circulation (SC) and sea surface temperature (SST) are closely related to the winter Norther Atlantic Oscillation (NAO) index. Using linear regressions and Principal Component Analysis (PCA), I managed to reproduce the following central result of this study: principal component scores of **SIC, SC and SST patterns explain roughly 57% of the average winter NAO index**. Next, I have extended this methodology at the spatial scale of individual stations.
+This work is based on the study of [Wang et al. (2017)](https://www.nature.com/articles/s41598-017-00353-y). The authors have shown that autumn patterns of sea-ice concentration (SIC), stratospheric circulation (SC) and sea surface temperature (SST) are closely related to the winter Norther Atlantic Oscillation (NAO) index. Using linear regressions and Principal Component Analysis (PCA), I managed to reproduce the following central result of this study: principal component scores of **SIC, SC and SST patterns explain roughly 57% of the average winter NAO index**. Next, I have extended this methodology at the spatial scale of individual stations.
 
 
 The following figures show the principal component patterns for sea-ice concentration (Figure 1, first loading), stratospheric circulation (Figure 2, second loading) and sea surface temperature (Figure 3, third loading). The combined amplitudes of these patterns are related to temperature anomalies in the northern hemisphere.
@@ -171,7 +171,9 @@ Code:
 * input.csv: _contains the list of countries where the analysis is to be conducted_
 
 ## (5) To do list:
-* Latest stand: era5T.py. Work on the download API funtion getFiles. z70hPa worked. Try year 2021-04 to see what is the lasted month available. If OK, then go with other variables, ci, etc.
+* Latest stand: era5T.py. Work on the download API funtion getFile: merge two nc files into one.
+* Work on the download API funtion getFiles. On 2021-05-06, loading 2021-04z70hPa worked. Now go on with other variables, ci, etc. Check [this link](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels-monthly-means?tab=form) also.
+
 * Adapt, improve and update the data feeds for ERA-5 (instead of ERA-interim) and GHCN.
 * Seek for an alternative re-analysis dataset with an shorter prodcution latency as ERA-5
 * Go beyond linear regressions and involve more advanced machine learning method for prediction.

@@ -170,80 +170,62 @@ class ERA5T():
 
     def getFiles(self, year: int, month: int) -> None:
         '''
-        !!! HERE !!! work on the API query
+        Loads data via the API, merge files into a single NetCDF files
+        and store the result on disk.
 
+        Parameters
+        ----------
+        year : int
+        month : int
         '''
         # Get inspiration from :
         # https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=form
-
-        # get MULTIPLE VARIABLES :
-        # filename01 = f'era5_file01_{year}_{month}.nc'
-        # filename02 = 'era5_file02_%s_%s.nc' % (year, month)
-        # filename03 = 'era5_file03_%s_%s.nc' % (year, month)
-
-        # logging.info("PROCESSING %s..." % (filename01))
-        # Here comes variables like temperature ...
-        # server.retrieve({
-        #     "class": "ei",
-        #     "dataset": "interim",
-        #     "date": datestring,
-        #     "expver": "1",
-        #     "grid": "%s/%s" % (resolution, resolution),
-        #     "levtype": "sfc",
-        #     "param": "31.128/34.128/35.128/134.128/139.128/151.128/165.128/166.128/167.128/168.128/174.128/186.128/187.128/188.128/207.128/235.128",
-        #     "stream": "moda",
-        #     "type": "an",
-        #     "format": "netcdf",
-        #     "target": "%s/%s" % (downloadDir, filename01),
-        # })
-
-        # Here comes ?? variables ??
-        # logging.info("PROCESSING %s..." % (filename02))
-        # server.retrieve({
-        #     "class": "ei",
-        #     "dataset": "interim",
-        #     "date": datestring,
-        #     "expver": "1",
-        #     "grid": "%s/%s" % (resolution, resolution),
-        #     "levtype": "sfc",
-        #     "param": "159.128/231.128/232.128",
-        #     "stream": "moda",
-        #     "format": "netcdf",
-        #     "type": "fc",
-        #     "target":  "%s/%s" % (downloadDir, filename02),
-        # })
+        # and also
+        # https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels-monthly-means?tab=form
 
         # Geopotentials heights data
-        filename = f'era5_file01_{year}_{month}.nc'
+        filename = f'era5_file01_{year}_{month}'
         logging.info("PROCESSING %s..." % (filename))
         path = f'{self.downloadDir}{filename}'
 
         c = cdsapi.Client()
-        c.retrieve('reanalysis-era5-pressure-levels-monthly-means',
-                   {
-                       'format': 'netcdf',
-                       'variable': 'geopotential',
-                       'pressure_level': '70',
-                       'year': int(year),
-                       'month': int(month),
-                       'time': '00:00',
-                       'product_type': 'monthly_averaged_reanalysis'
-                   },
-                   path)
-
-        #     "class": "ei",
-        #     "dataset": "interim",
-        #     "date": datestring,
-        #     "expver": "1",
-        #     "grid": "%s/%s" % (resolution, resolution),
-        #     "levelist": "70",
-        #     "levtype": "pl",
-        #     "param": "129.128",
-        #     "stream": "moda",
-        #     "type": "an",
-        #     "format": "netcdf",
-        #     "target":  "%s/%s" % (downloadDir, filename03),
-        # })
+        # Data at pressure levels:
+        c.retrieve(
+            'reanalysis-era5-pressure-levels-monthly-means',
+            {
+                'format': 'netcdf',
+                # Latitude/longitude grid, default: 0.25 x 0.25
+                'grid': [1.0, 1.0],
+                'variable': [
+                    'geopotential'],
+                'pressure_level': '70',
+                'year': int(year),
+                'month': int(month),
+                'time': '00:00',
+                'product_type': 'monthly_averaged_reanalysis'
+            },
+            path + '_part01.nc')
+        # Data at single pressure level:
+        c.retrieve(
+            'reanalysis-era5-single-levels-monthly-means',
+            {
+                'format': 'netcdf',
+                # Latitude/longitude grid, default: 0.25 x 0.25
+                'grid': [1.0, 1.0],
+                'product_type': 'monthly_averaged_reanalysis',
+                'variable': [
+                    'sea_ice_cover',
+                    'surface_pressure',
+                    'sea_surface_temperature',
+                    '2m_temperature',
+                    'mean_sea_level_pressure',
+                    'total_precipitation',
+                ],
+                'year': int(year),
+                'month': int(month),
+                'time': '00:00'
+            },
+            path + '_part02.nc')
 
     def getFile(self, year, month):  # DEPRECATED
         '''
