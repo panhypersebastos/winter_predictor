@@ -14,6 +14,8 @@ import pandas as pd
 import itertools
 from json import loads
 from typing import List
+import tempfile
+import pathlib
 
 
 class ERA5T():
@@ -177,6 +179,13 @@ class ERA5T():
         ----------
         year : int
         month : int
+
+        # Returns
+        # -------
+        # List[str]
+        #     A list containing two paths:
+        #     * One pointing to the data at pressure levels (z70).
+        #     * The other pointing to the data at single pressure level (sst, t2m, etc.).
         '''
         # Get inspiration from :
         # https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-pressure-levels-monthly-means?tab=form
@@ -184,12 +193,16 @@ class ERA5T():
         # https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels-monthly-means?tab=form
 
         # Geopotentials heights data
-        filename = f'era5_file01_{year}_{month}'
+        filename = f'era5_{year}-{month}'
         logging.info("PROCESSING %s..." % (filename))
-        path = f'{self.downloadDir}{filename}'
+        tempdir = tempfile.TemporaryDirectory().name
+        pathlib.Path(tempdir).mkdir(parents=True, exist_ok=True)
+        temp_path = f'{tempdir}/{filename}'
+        path = f'{self.downloadDir}{filename}.nc'
 
         c = cdsapi.Client()
         # Data at pressure levels:
+        f01 = temp_path + '_part01.nc'
         c.retrieve(
             'reanalysis-era5-pressure-levels-monthly-means',
             {
@@ -204,8 +217,9 @@ class ERA5T():
                 'time': '00:00',
                 'product_type': 'monthly_averaged_reanalysis'
             },
-            path + '_part01.nc')
+            f01)
         # Data at single pressure level:
+        f02 = temp_path + '_part02.nc'
         c.retrieve(
             'reanalysis-era5-single-levels-monthly-means',
             {
@@ -225,72 +239,16 @@ class ERA5T():
                 'month': int(month),
                 'time': '00:00'
             },
-            path + '_part02.nc')
-
-    def getFile(self, year, month):  # DEPRECATED
-        '''
-        Download ERA5 netCDF file. Note that a monthly file is ~ 3GB large.
-        '''
-        targetfile = 'era5_%s-%s.nc' % (year, month)
-        path = '%s/%s' % (self.downloadDir, targetfile)
-        if os.path.isfile(path) is True:
-            logging.info('%s Already exists, deleting...' % targetfile)
-            os.remove(path)
-
-        logging.info('PROCESSING %s' % targetfile)
-
-        vars = [
-            'sea_ice_cover',  # ci (0-1)
-            '2m_temperature',  # 2t [K]
-            'total_precipitation',  # tp [m]
-            'sea_surface_temperature',  # sst [K]
-            'ice_temperature_layer_1',  # istl1 [K]
-            'surface_pressure',  # sp [Pa]
-            'soil_temperature_level_1',  # stl1 [K]
-            'mean_sea_level_pressure',  # msl [Pa]
-            '2m_dewpoint_temperature',  # 2d [K]
-            '10m_wind_gust_since_previous_post_processing',  # 10gf [m/s]
-            # geopotential height -- specify the level ! z [m/s^2]
-            'geopotential'
-        ]
-
-        c = cdsapi.Client()
+            f02)
         try:
-            c.retrieve(name='reanalysis-era5-single-levels',
-                       request={
-                           'product_type': 'reanalysis',
-                           'format': 'netcdf',
-                           'variable': vars,
-                           "levelist": "700",
-                           'year': int(year),
-                           'month': int(month),
-                           'day': np.arange(1, 31 + 1).tolist(),
-                           'time': [
-                               '00:00', '01:00', '02:00',
-                               '03:00', '04:00', '05:00',
-                               '06:00', '07:00', '08:00',
-                               '09:00', '10:00', '11:00',
-                               '12:00', '13:00', '14:00',
-                               '15:00', '16:00', '17:00',
-                               '18:00', '19:00', '20:00',
-                               '21:00', '22:00', '23:00'
-                           ]
-                       },
-                       target=path)
+            ds01 = xr.open_dataset(f01)
+            ds02 = xr.open_dataset(f02)
         except Exception as e:
             print(e)
-        logging.info(
-            'DOWNLOAD of %s DONE.\n Transforming file from hourly to daily...' % targetfile)
-
-        # Resample hourly to daily and save
-        try:
-            ds = xr.open_dataset(path)
-        except Exception as e:
-            print(e)
-            logging.info('ERROR: could not process %s' % targetfile)
+            logging.info('ERROR: could not process %s' % filename)
         else:
-            ds_agg = ds.resample(time='D').mean()
-            ds_agg.to_netcdf(path)
+            ds = ds02.merge(ds01)
+            ds.to_netcdf(path)
 
     def createDataColIndex(self):
         '''
@@ -576,6 +534,7 @@ class ERA5T():
             logging.info(' --- PROCESSING YEAR %s ---' % year)
 
             if self.download is True:
+                logging.info('Proceeding with downloads...')
                 today = datetime.today()
                 if (year == today.year):
                     months = np.arange(1,
@@ -593,7 +552,7 @@ class ERA5T():
                 else:
                     # Probably a bug HERE !!! To be tested.
                     fmonths_present = sorted(list(
-                        map(lambda x: int(x[x.find("-")+1:x.find(".nc")]),
+                        map(lambda x: int(x[x.find("-")+1: x.find(".nc")]),
                             ncfiles)))
                     fmonths_needed = months
                     # Months needed but not present :
