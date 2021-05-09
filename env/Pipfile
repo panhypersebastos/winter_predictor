@@ -39,6 +39,10 @@ contextily = "*"
 pandasql = "*"
 gprof2dot = "*"
 openpyxl = "*"
+geos = "*"
+shapely = "*"
+pyshp = "*"
+proj = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3"

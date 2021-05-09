@@ -24,7 +24,7 @@ The project includes three directories, which are described below:
 * `data`: contains various files, e.g., configuration, plots, etc.
 * `dev`: contains development files, e.g., jupyter-notebooks, etc.
 
-## Prerequisites <a name="prerequisites">
+## Prerequisites <a name="prerequisites"></a>
 
 * Per default, it is assumed that the user has access to a running MongoDB database service. Please review and modify the access configuration file at `data/config.json`. Access Control can be defined in Mongo shell following [these](https://docs.mongodb.com/manual/tutorial/enable-authentication/) instructions.
 * All necessary Python packages can be installed in a [pipenv](https://docs.pipenv.org/) virtual environment (venv). The Pipfile is located in [env/Pipfile](env/Pipfile). In order to setup the venv:

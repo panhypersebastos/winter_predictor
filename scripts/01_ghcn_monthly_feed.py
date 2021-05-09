@@ -20,7 +20,8 @@ def main(download: bool, first_insertion: bool) -> None:
 
     G = GHCN(config_file='../data/config.json')
     if download is True:
-        G.wgetData()
+        G.wgetData(target='data')
+        G.wgetData(target='countries')
     G.insertDataCollection()
     if first_insertion is True:
         # Generally done for the first insertion

@@ -16,6 +16,7 @@ class GHCN():
     '''
 
     remote_data = 'https://www1.ncdc.noaa.gov/pub/data/ghcn/v4/ghcnm.tavg.latest.qcu.tar.gz'
+    countries_file = 'https://www1.ncdc.noaa.gov/pub/data/ghcn/v4/ghcnm-countries.txt'
 
     def __init__(self,
                  config_file: str) -> None:
@@ -39,6 +40,16 @@ class GHCN():
         self.logfilename = cfg['download_dir'] + 'ghcnm.log'
         self.cfg = cfg
 
+        if os.path.exists(self.downloadDir) is False:
+            try:
+                from pathlib import Path
+                Path(self.downloadDir).mkdir(parents=True, exist_ok=True)
+            except OSError:
+                print("Creation of the directory %s failed" %
+                      self.downloadDir)
+            else:
+                print("Created the directory %s " % self.downloadDir)
+
         # Logging setup
         # Remove all handlers associated with the root logger object
         for handler in logging.root.handlers[:]:
@@ -51,26 +62,30 @@ class GHCN():
             level=logging.INFO)
         logging.info('GHCN MONTHLY: job started')
 
-    def wgetData(self) -> None:
+    def wgetData(self, target: str) -> None:
         '''
-        Downloads the GHCN monthly data using wget.
+        Downloads either
+        * the GHCN monthly data 
+        * or the list of countries
+        using wget.
         This downloads both the station metadata and
         the monthly data itself.
 
         Parameters
         ----------
-        None
+        target : str
+            * Eiter "data" for GHCNM data
+            * or "countries" for the list of GHCNM countries.
 
         Returns
         -------
         None
             The statement is executed without return value.
         '''
-        wget_command = 'wget -nH --cut-dirs=100 -np -P %s -m %s && tar -xzf %s/ghcnm.tavg.latest.qcu.tar.gz -C %s' % (
-            self.downloadDir,
-            self.remote_data,
-            self.downloadDir,
-            self.downloadDir)
+        if target == 'data':
+            wget_command = f'wget -nH --cut-dirs=100 -np -P {self.downloadDir} -m {self.remote_data} && tar -xzf {self.downloadDir}/ghcnm.tavg.latest.qcu.tar.gz -C {self.downloadDir}'
+        elif target == 'countries':
+            wget_command = f'wget -nH --cut-dirs=100 -np -P {self.downloadDir} -m {self.countries_file}'
         logging.info('Executing: %s' % wget_command)
         os.system(wget_command)
         logging.info('Executing: %s DONE' % wget_command)
@@ -191,7 +206,7 @@ class GHCN():
             The statement is executed without return value.
         '''
         # Country metadata
-        country_df = pd.read_fwf('%sghcnm-countries.txt' % self.downloadDir,
+        country_df = pd.read_fwf(f'{self.downloadDir}ghcnm-countries.txt',
                                  colspecs=[[0, 2], [3, 500]],
                                  header=None,
                                  names=['country_id', 'country'])
