@@ -385,10 +385,21 @@ class ERA5T():
                       't2m': t2m_trans}
         return(update_doc)
 
-    def findMissingDates(self, ds):
+    def findMissingDates(self, ds: xr.core.dataset.Dataset) \
+            -> pd.core.frame.DataFrame:
         '''
-        Finds the missing dates in an xarray object and return a pd.DataFrame
-        ds -- xarray
+        Finds the missing dates in an xarray dataset object and
+        returns a pd.DataFrame containing the missing dates in the
+        'time' column.
+        This functions only makes sense for dataset with daily time series.
+
+        Parameters
+        ----------
+        ds : xr.core.dataset.Dataset
+
+        Returns
+        -------
+        pd.core.frame.DataFrame
         '''
         this_year = self.year
         dates_df = pd.DataFrame(
@@ -469,7 +480,9 @@ class ERA5T():
         else:
             logging.info('Upsert not implemented yet')
 
-    def exploreChunks(self, ilon_chunk, ilat_chunk, delta, retrn, col_grid):
+    def exploreChunks(self, ilon_chunk: int, ilat_chunk: int, delta: int,
+                      # HERE !!!!
+                      retrn: str, col_grid):
         '''
         Explore an xarray chunk and returns either the number
         of grid cells or the grid ids.
@@ -519,7 +532,7 @@ class ERA5T():
         '''
         nc_local = ['%s/%s' % (self.downloadDir, f) for f in
                     os.listdir(self.downloadDir) if
-                    f.startswith('era5_%s' % year) and f.endswith('.nc')]
+                    f.startswith(f'era5_{year}') and f.endswith('.nc')]
         return(nc_local)
 
     def processYears(self, years: List[int]) -> None:
@@ -570,7 +583,7 @@ class ERA5T():
                       months_to_download)
                 p.close()
                 p.join()
-                logging.info('Downloading files for YEAR %s Done.' % year)
+                logging.info(f'Downloading files for YEAR {year} Done.')
             else:
                 logging.info('Proceeding without downloads')
 
@@ -580,24 +593,28 @@ class ERA5T():
             # Open them all in one ds object
             # arrays will be loaded in chronological order
             ds = xr.open_mfdataset(nc_local, combine='by_coords')
-            self.df_missing_dates = self.findMissingDates(ds)
+            # only makes sense for daily time-series:
+            # self.df_missing_dates = self.findMissingDates(ds)
 
             # Create the tile (chunks) elements
-            delta = 10  # in degrees
+            # This operation starts to be useful at high grid resolution
+            # i.e., from 0.25 x 0.25. For coarser grid (i.e., 0.1 x 0.1)
+            # this is not really vital.
+            delta = 10  # grid chunk in degrees
             # ERA's lon have range [0, 360] and not [-180, 180]
             ilons = np.arange(0, 360, delta)
             ilats = np.arange(-60, 90, delta)
             elements = itertools.product(*[ilons, ilats])
 
-            # Explore the chunks and select those containing grid cells
+            # Explore the grid chunks and select those containing grid cells
             def worker_initializer00():
                 global col_grid
-                cons = self._createMongoConn(
-                    experimental_setting=self.experimental_setting)
+                cons = self._createMongoConn(cfg=self.cfg)
                 col_grid = cons['col_grid']
 
             p = ThreadPool(processes=self.nthreads,
                            initializer=worker_initializer00)
+            # HERE !!
             res = p.map(
                 lambda e: self.exploreChunks(
                     e[0], e[1], delta, 'ndocs', col_grid),

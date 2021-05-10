@@ -171,8 +171,8 @@ Code:
 * input.csv: _contains the list of countries where the analysis is to be conducted_
 
 ## (5) To do list:
-* Latest stand: era5T.py. processYears: test downloading all data in parallel, test month pre-selection.
-* For comments: era5T.py. Work on the download API funtion getFile: merge two nc files into one.
+* Latest stand: era5T.py. processYears: working on processChunk.
+* For comments: era5T.py. processYears: test downloading all data in parallel, test month pre-selection.
 * Work on the download API funtion getFiles. On 2021-05-06, loading 2021-04z70hPa worked. Now go on with other variables, ci, etc. Check [this link](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels-monthly-means?tab=form) also.
 
 * Predict PCA scores of next winter avg temp using PCA scores of ci, sp, sst, z70, etc.

@@ -43,6 +43,7 @@ geos = "*"
 shapely = "*"
 pyshp = "*"
 proj = "*"
+dask = "*"
 
 [requires]
 python_version = "3"
