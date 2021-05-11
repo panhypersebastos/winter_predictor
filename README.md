@@ -171,7 +171,7 @@ Code:
 * input.csv: _contains the list of countries where the analysis is to be conducted_
 
 ## (5) To do list:
-* Latest stand: era5T.py. processYears: working on processChunk.
+* Latest stand: era5T.py. Working on the creation of the grid collection, see jupyter notebook era5t_feed.ipynb
 * For comments: era5T.py. processYears: test downloading all data in parallel, test month pre-selection.
 * Work on the download API funtion getFiles. On 2021-05-06, loading 2021-04z70hPa worked. Now go on with other variables, ci, etc. Check [this link](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels-monthly-means?tab=form) also.
 

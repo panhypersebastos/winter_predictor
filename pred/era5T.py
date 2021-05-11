@@ -25,6 +25,8 @@ class ERA5T():
     '''
 
     start_era5t = datetime(year=1979, month=1, day=1)
+    # Latitude/longitude grid, default in ERA5 is 0.25 x 0.25
+    resolution = [1.0, 1.0]
 
     def __init__(self,
                  config_file: str,
@@ -130,37 +132,56 @@ class ERA5T():
         col_grid = mg[db_name]['grid']
         col_dat = mg[db_name]['data']
         return({'con': mg,
-                'col_sta': col_grid,
+                'col_grid': col_grid,
                 'col_dat': col_dat})
 
-    def getLandMask(self) -> None:
+    def getMasks(self) -> None:
         '''
-        This function downloads the ERA5 land mask
-        and is used only once. It is relavant if the grid is limited to land
-        area and is used in the function "createLandGridCollection".
-        (Function not relevant for the winter predictor project).
+        Downloads ERA5 constant surface variables,
+        e.g., the ERA5 land/sea mask. This is useful for:
+        * either having a reference grid in order to create the grid collection
+        * or limit the data to land surface.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
         '''
-        # Look there:
-        # https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels-monthly-means?tab=form
-        logging.info('Downloading land mask...')
+
+        logging.info('Downloading constant surface variables...')
         c = cdsapi.Client()
         c.retrieve(
             name='reanalysis-era5-single-levels',
             request={
                 'product_type': 'reanalysis',
                 'format': 'netcdf',
+                'grid': self.resolution,
                 'variable': [
                     'land_sea_mask',
-                    'sea_surface_temperature'
+                    'lake_cover',
+                    'low_vegetation_cover',
+                    'high_vegetation_cover',
+                    'type_of_low_vegetation',
+                    'type_of_high_vegetation',
+                    'soil_type',
+                    'standard_deviation_of_filtered_subgrid_orography',
+                    'orography',
+                    'standard_deviation_of_orography',
+                    'anisotropy_of_sub_gridscale_orography',
+                    'angle_of_sub_gridscale_orography',
+                    'slope_of_sub_gridscale_orography',
                 ],
                 'year': '1979',
                 'month': '01',
                 'day': '01',
                 'time': '00:00'
             },
-            target=f'{self.downloadDir}land_sea_mask.nc')
+            target=f'{self.downloadDir}era5_masks.nc')
 
-        logging.info('Downloading land mask DONE.')
+        logging.info('Downloading ERA5 masks DONE.')
 
     def getAllGridIds(self):
         '''
@@ -207,8 +228,7 @@ class ERA5T():
             'reanalysis-era5-pressure-levels-monthly-means',
             {
                 'format': 'netcdf',
-                # Latitude/longitude grid, default: 0.25 x 0.25
-                'grid': [1.0, 1.0],
+                'grid': self.resolution,
                 'variable': [
                     'geopotential'],
                 'pressure_level': '70',
@@ -225,7 +245,7 @@ class ERA5T():
             {
                 'format': 'netcdf',
                 # Latitude/longitude grid, default: 0.25 x 0.25
-                'grid': [1.0, 1.0],
+                'grid': self.resolution,
                 'product_type': 'monthly_averaged_reanalysis',
                 'variable': [
                     'sea_ice_cover',
@@ -481,7 +501,6 @@ class ERA5T():
             logging.info('Upsert not implemented yet')
 
     def exploreChunks(self, ilon_chunk: int, ilat_chunk: int, delta: int,
-                      # HERE !!!!
                       retrn: str, col_grid):
         '''
         Explore an xarray chunk and returns either the number
