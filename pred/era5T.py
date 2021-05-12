@@ -286,35 +286,54 @@ class ERA5T():
         logging.info('Indexes added for the data collection')
 
     @staticmethod
-    def shiftlon(x):
+    def _shiftlon(x):
+        '''
+        Helper for the "createGridCollection" function.
+        '''
         if x > 180:
             x = x - 360
         return(x)
 
     @staticmethod
-    def shiftback_lon(x):
+    def _shiftback_lon(x):
+        '''
+        Helper for the "createGridCollection" function.
+        '''
         if x < 0:
             x = x + 360
         return(x)
 
-    def createLandGridCollection(self) -> None:
+    def createGridCollection(self, mask: bool = False) -> None:
         '''
-        Creation of a grid collection limited to land surface,
-        excluding sea surface.
-        (Function not relevant for the winter predictor project).
+        Creation of the grid collection.
+        
+        Parameters
+        ----------
+        mask : bool
+            Should a mask that limits data to land surface (excluding sea surface)
+            be applied? Default is False.
+        
+        Returns
+        -------
+        None
         '''
         logging.info('INGESTION of the grid collection started...')
-        # Open ERA5 land mask (downloaded with the "getLandMask" function.)
-        f = '%s/land_sea_mask.nc' % self.downloadDir
+        f = self.downloadDir + 'era5_masks.nc'
+        if os.path.exists(f) is False:
+            print('Downloading mask data...')
+            self.getMasks()
         ds = xr.open_dataset(f)
-        # Limit the grid collection to land only and exclude Antarctica
-        # LSM is the proportion of land/sea in a grid box
-        field = ds.isel(time=0).where((ds.lsm.isel(time=0) > 0) &
-                                      (ds.latitude >= -60))
+        if mask is True:
+            # Limit the grid collection to land only and exclude Antarctica
+            # LSM is the proportion of land/sea in a grid box
+            field = ds.isel(time=0).where((ds.lsm.isel(time=0) > 0) &
+                                          (ds.latitude >= -60))
+        else:
+            field = ds.isel(time=0)
         df = field.to_dataframe().reset_index()
 
         def createCoord(lon, lat):
-            newlon = self.shiftlon(lon)
+            newlon = self._shiftlon(lon)
             res = {'type': 'Point',
                    'coordinates': [newlon, lat]}
             return(res)
@@ -323,20 +342,22 @@ class ERA5T():
                        loc=list(map(lambda lon, lat: createCoord(lon, lat),
                                     df['longitude'],
                                     df['latitude'])))
-        df = df.drop(columns=['time', 'sst', 'longitude', 'latitude'])
+        df = df.drop(columns=['longitude', 'latitude'])
         df = df.dropna()
 
-        con = self._createMongoConn(self.experimental_setting)
+        con = self._createMongoConn(cfg=self.cfg)
         col_grid = con['col_grid']
         col_grid.insert_many(df.to_dict('records'))
         logging.info('INGESTION of the grid collection DONE.')
+        # Adding geospatial indexes:
+        self._createGridColIndex()
 
-    def createGridColIndex(self):
+    def _createGridColIndex(self):
         '''
         Create Geo-Spatial indexes
         Warning: geospatial index require -180, +180 longitudes.
         '''
-        con = self._createMongoConn(self.experimental_setting)
+        con = self._createMongoConn(cfg=self.cfg)
         col_grid = con['col_grid']
         col_grid.create_index([("loc", pymongo.GEOSPHERE),
                                ("id_grid", pymongo.ASCENDING)])
