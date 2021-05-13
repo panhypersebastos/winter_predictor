@@ -172,6 +172,7 @@ Code:
 
 ## (5) To do list:
 * Latest stand: createRow: Decide how to store data: all year in one array?
+
 * For comments: era5T.py. Worked on the creation of the grid collection. Function created and integrated into the workflow in "processYear()" and in "init()".
 * Work on the download API funtion getFiles. On 2021-05-06, loading 2021-04z70hPa worked. Now go on with other variables, ci, etc. Check [this link](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels-monthly-means?tab=form) also.
 
