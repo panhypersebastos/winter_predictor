@@ -100,11 +100,14 @@ A typical monthly station data document contains monthly observations and looks 
 ‘station_id’: 2345, 
 ‘variable’: ‘TAVG’, 
 ‘year’: 2017, 
-‘january’: 2.9, 
-(…), 
-‘december’: 3.2}
+‘1’: 2.9,
+‘2’: 1.7,
+‘3’: 7.4,
+(...)
+‘12’: 2.1,
+}
 ```
-
+where "1", "2", "3", ..., "12" are the months for which average temperature (TAVG) is being reported.
 
 ### Monthly ERA5T reanalysis dataset
 For all details, check [README_ERA5T_MONTHLY.md](README_ERA5T_MONTHLY.md)
@@ -112,19 +115,25 @@ For all details, check [README_ERA5T_MONTHLY.md](README_ERA5T_MONTHLY.md)
 The [ERA5T](https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation) database contains two collections: one containing the grid cell locations and a second collection containing the monthly time series. A typical grid document is spatially indexed and looks like this:
 
 ```
-{'_id': ObjectId('...'), 
- 'id_grid': 1, 
- 'loc': {
- 'coordinates': [-180.0, 90.0], 
- 'type': 'Point'}}
+{
+'_id': ObjectId('...'), 
+'id_grid': 1, 
+'loc': {
+	'coordinates': [-180.0, 90.0], 
+	'type': 'Point'},
+'lsm' : 0.0,
+(...)
+}
 ```
+In addition to the location and the grid_id, several invariant (in time) parameters  are also present, e.g., land-sea mask (lsm). For a precise description of these parameters, see Table 1 at this [link](https://confluence.ecmwf.int/display/CKB/ERA5%3A+data+documentation).
+
  
 A typical re-analysis monthly data document has indexes put on the date and grid_id and looks like this:
 
 ```
-{'_id': ObjectId('...'),  
-'date': datetime.datetime(1995, 1, 1, 0, 0),  
-'id_grid': 1, …, 
+{'_id': ObjectId('...'),
+'date': datetime.datetime(1995, 1, 1, 0, 0),
+'id_grid': 1, 
 'ci': 1.0, 
 'sp': 102342.02, 
 'sst': 271.46, 
@@ -171,9 +180,8 @@ Code:
 * input.csv: _contains the list of countries where the analysis is to be conducted_
 
 ## (5) To do list:
-* Latest stand: createRow: Decide how to store data: all year in one array?
-
-* For comments: era5T.py. Worked on the creation of the grid collection. Function created and integrated into the workflow in "processYear()" and in "init()".
+* Latest stand:  First attempt to run the script 02_era.py.
+* For comments: createRow: chosen to store data in one array. First attempt to run the script 02_era.py.
 * Work on the download API funtion getFiles. On 2021-05-06, loading 2021-04z70hPa worked. Now go on with other variables, ci, etc. Check [this link](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels-monthly-means?tab=form) also.
 
 * Predict PCA scores of next winter avg temp using PCA scores of ci, sp, sst, z70, etc.

@@ -142,9 +142,9 @@ class GHCN():
         if not passed:
             col_sta.create_index([("station_id", pymongo.ASCENDING)])
             col_sta.create_index([("loc", pymongo.GEOSPHERE)])
-            print('Station indexes created.')
+            logging.info('Station indexes created.')
         else:
-            print('Station indexes already exist.')
+            logging.info('Station indexes already exist.')
 
     def createDataIndexing(self) -> None:
         '''

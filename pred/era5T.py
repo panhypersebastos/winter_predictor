@@ -49,7 +49,8 @@ class ERA5T():
         nthreads : int
             Number of parallel processes. Per default 4 threads.
         download : bool
-            Shall files be downloaded or just work with files already present.
+            Shall files be downloaded or just work with files
+            already present locally?
             Default is False.
 
         Returns
@@ -61,6 +62,7 @@ class ERA5T():
             cfg = loads(config.read())
         self.downloadDir = cfg['download_dir'] + 'ERA5T/'
         self.logfilename = cfg['download_dir'] + 'era5t.log'
+        self.nthreads = nthreads
         self.cfg = cfg
 
         if os.path.exists(self.downloadDir) is False:
@@ -211,7 +213,7 @@ class ERA5T():
 
         # Geopotentials heights data
         filename = f'era5_{year}-{month}'
-        logging.info("PROCESSING %s..." % (filename))
+        logging.info(f'Downloading {filename}...')
         tempdir = tempfile.TemporaryDirectory().name
         pathlib.Path(tempdir).mkdir(parents=True, exist_ok=True)
         temp_path = f'{tempdir}/{filename}'
@@ -266,20 +268,25 @@ class ERA5T():
             ds = ds02.merge(ds01)
             ds.to_netcdf(path)
 
-    def createDataColIndex(self):
+    def _createDataColIndex(self):
         '''
         Create indexes for the data collection
         '''
-        index1 = pymongo.IndexModel([("year", pymongo.DESCENDING)],
-                                    name="year_-1")
-        index2 = pymongo.IndexModel(
-            [("id_grid", pymongo.ASCENDING),
-             ("year", pymongo.DESCENDING)],
-            name="id_grid_1_year_-1")
-        con = self._createMongoConn(self.experimental_setting)
-        col_dat = con['col_dat']
-        col_dat.create_indexes([index1, index2])
-        logging.info('Indexes added for the data collection')
+        col_dat = self._createMongoConn(cfg=self.cfg)['col_dat']
+        idx = col_dat.index_information()
+        should_idx = ['_id_', 'year_-1', 'id_grid_1_year_-1']
+        passed = all(item in list(idx.keys())for item in should_idx)
+        if not passed:
+            index1 = pymongo.IndexModel([("year", pymongo.DESCENDING)],
+                                        name="year_-1")
+            index2 = pymongo.IndexModel(
+                [("id_grid", pymongo.ASCENDING),
+                 ("year", pymongo.DESCENDING)],
+                name="id_grid_1_year_-1")
+            col_dat.create_indexes([index1, index2])
+            logging.info('Indexes added for the data collection')
+        else:
+            logging.info('Data indexes already exist.')
 
     @staticmethod
     def _shiftlon(x):
@@ -389,49 +396,46 @@ class ERA5T():
     def createRow(self,
                   doc: dict,
                   df_missing_dates: pd.core.frame.DataFrame,
-                  ds: xr.core.dataset.Dataset):
+                  ds: xr.core.dataset.Dataset) -> dict:
         '''
-        Create a dataframe ready to be inserted into MongoDB
-        in the data collection.
+        Create a dataframe for a given location containing all observation
+        for this year. The resulting document is then ready to be inserted
+        into MongoDB in the data collection.
 
         Parameters
         ----------
         doc : dict
-            Single document from the grid collection.
+            Single document from the grid collection. Contains the coordinates
+            for which the observation are to be retrieved from the ds object.
         df_missing_dates : pd.core.frame.DataFrame
-            DataFrame from the 'findMissingDates' function.
+            Contains the missing dates (due to e.g., absent data or files).
+            This DataFrame comes from the 'findMissingDates' function.
         ds : xr.core.dataset.Dataset
 
         Returns
         -------
+        dict
+            MongoDB document containing the observations for a given year at
+            given single location.
         '''
         this_year = int(self.year)
         id_grid = int(doc['id_grid'])
         lon, lat = doc['loc']['coordinates']
-        lon = self.shiftback_lon(x=lon)
-
-        df0 = ds.sel({'longitude': lon, 'latitude': lat},
-                     method='nearest').to_dataframe().reset_index()
-        df0['time'] = list(map(lambda x: pd.to_datetime(x).date(),
-                               df0['time']))
-
+        lon = self._shiftback_lon(x=lon)
+        df0 = ds.sel({'longitude': lon, 'latitude': lat}, method='nearest').\
+            to_dataframe().drop(columns=['longitude', 'latitude']).\
+            reset_index()
+        df0['time'] = [pd.to_datetime(x).date() for x in df0['time']]
         if (df_missing_dates.shape[0] > 0):
             # Fill with NA days
             df0 = pd.merge(left=df0,
                            right=df_missing_dates,
                            on='time', how='outer').sort_values(
                                by='time', ascending=True)
-        # t2m_trans = list(map(
-        #     lambda x: round(x - 273.15, 2),  # from °K into °C
-        #     df0['t2m']))
-        # tp_trans = list(map(
-        #     lambda x: round(x * 1000 * 24, 2),  # from m/h into mm/day,
-        #     df0['tp']))
-        # HERE !!! Decide how to store data: all year in one array?
-        update_doc = {'year': this_year,
-                      'id_grid': id_grid,
-                      'tp': tp_trans,
-                      't2m': t2m_trans}
+        df0['time'] = [pd.to_datetime(x) for x in df0['time']]
+        update_doc = df0.to_dict(orient='list')
+        update_doc.update({'year': this_year,
+                           'id_grid': id_grid})
         return(update_doc)
 
     def findMissingDates(self,
@@ -514,24 +518,28 @@ class ERA5T():
         # load raster into memory
         # ds_chunk = ds_chunk.load()
 
-        with self._createMongoConn(cfg=self.cfg) as con:
-            # Get the gridcells
-            col_grid = con['col_grid']
-            grid_docs = self.exploreChunks(ilon_chunk, ilat_chunk, delta,
-                                           'docs', col_grid)
-            res = [self.createRow(x, self.df_missing_dates, ds_chunk)
-                   for x in grid_docs]
-            col_dat = con['col_dat']
-            if (method == 'insert'):
-                df = pd.DataFrame(res)
-                ids = df['id_grid'].values.tolist()
-                # First remove data
-                col_dat.delete_many(filter={'year': int(self.year),
-                                            'id_grid': {'$in': ids}})
-                # Then insert data
-                col_dat.insert_many(df.to_dict('records'))
-            else:
-                logging.info('Upsert not implemented yet')
+        con = self._createMongoConn(cfg=self.cfg)
+        # Get the grid cells metadata
+        col_grid = con['col_grid']
+        grid_docs = self.exploreChunks(ilon_chunk=ilon_chunk,
+                                       ilat_chunk=ilat_chunk,
+                                       delta=delta,
+                                       mask_query=None,
+                                       retrn='docs',
+                                       col_grid=col_grid)
+        # Get the data over the grid cells
+        res = [self.createRow(x, self.df_missing_dates, ds_chunk)
+               for x in grid_docs]
+        col_dat = con['col_dat']
+        if (method == 'insert'):
+            ids = [x['id_grid'] for x in res]
+            # First remove data
+            col_dat.delete_many(filter={'year': int(self.year),
+                                        'id_grid': {'$in': ids}})
+            # Then insert data
+            col_dat.insert_many(res)
+        else:
+            logging.info('Upsert not implemented yet')
 
     def exploreChunks(self,
                       ilon_chunk: int,
@@ -572,8 +580,8 @@ class ERA5T():
         Union[dict, pymongo.cursor.Cursor]
         '''
         ilon_orig = int(ilon_chunk)
-        ilon_chunk = int(self.shiftlon(x=ilon_chunk))
-        ilon_plus = int(self.shiftlon(x=ilon_chunk + delta))
+        ilon_chunk = int(self._shiftlon(x=ilon_chunk))
+        ilon_plus = int(self._shiftlon(x=ilon_chunk + delta))
         ilat_chunk = int(ilat_chunk)
         geoqry = {'loc':
                   {'$geoWithin':
@@ -594,7 +602,7 @@ class ERA5T():
                    'ilat_chunk': ilat_chunk,
                    'n': col_grid.count_documents(filter=geoqry)}
         elif retrn == 'docs':
-            res = col_grid.find(geoqry, {'id_grid': 1, '_id': 0})
+            res = col_grid.find(geoqry, {'id_grid': 1, 'loc': 1, '_id': 0})
         return(res)
 
     def listNetCDFfiles(self, year: int) -> List[str]:
@@ -622,20 +630,21 @@ class ERA5T():
         years : List[int]
             list of years to (re-)process
         '''
-
-        with self._createMongoConn(cfg=self.cfg)['col_grid'] as col_grid:
-            # Does the grid collection exists?
-            ndoc = col_grid.count_documents(filter={})
-            if ndoc == 0:
-                logging.info('Creation of the grid collection...')
-                # Does the reference netCDF file exists?
-                fname = self.downloadDir+'era5_masks.nc'
-                if os.path.exists(fname) is False:
-                    print('Downloading mask data...')
-                    self.getMasks()
-                self.createGridCollection(mask=False)
-            # Get all grid_ids
-            self.all_ids = col_grid.distinct(key='id_grid')
+        
+        self._createDataColIndex()
+        col_grid = self._createMongoConn(cfg=self.cfg)['col_grid']
+        # Does the grid collection exists?
+        ndoc = col_grid.count_documents(filter={})
+        if ndoc == 0:
+            logging.info('Creation of the grid collection...')
+            # Does the reference netCDF file exists?
+            fname = self.downloadDir+'era5_masks.nc'
+            if os.path.exists(fname) is False:
+                print('Downloading mask data...')
+                self.getMasks()
+            self.createGridCollection(mask=False)
+        # Get all grid_ids
+        self.all_ids = col_grid.distinct(key='id_grid')
 
         for year in years:
             self.year = int(year)
@@ -674,7 +683,7 @@ class ERA5T():
                 # Parralel download of monthly data:
                 install_mp_handler()
                 p = ThreadPool(processes=self.nthreads)
-                p.map(lambda m: self.getFile(year=year, month=m),
+                p.map(lambda m: self.getFiles(year=year, month=m),
                       months_to_download)
                 p.close()
                 p.join()
@@ -697,7 +706,8 @@ class ERA5T():
                 # This operation starts to be useful at high grid resolution
                 # i.e., from 0.25 x 0.25. For coarser grid (i.e., 0.1 x 0.1)
                 # this is not really essential.
-                delta = 10  # grid chunk in degrees
+                delta = 30  # grid chunk in degrees (should be a multiple of
+                # both 360 and 180)
                 # ERA's lon have range [0, 360] and not [-180, 180]
                 ilons = np.arange(0, 360, delta)
                 ilats = np.arange(-60, 90, delta)
@@ -714,7 +724,12 @@ class ERA5T():
                                initializer=worker_initializer00)
                 res = p.map(
                     lambda e: self.exploreChunks(
-                        e[0], e[1], delta, 'ndocs', col_grid),
+                        ilon_chunk=e[0],
+                        ilat_chunk=e[1],
+                        delta=delta,
+                        mask_query=None,
+                        retrn='ndocs',
+                        col_grid=col_grid),
                     elements)
                 p.close()
                 p.join()
