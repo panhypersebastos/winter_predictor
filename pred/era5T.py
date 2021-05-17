@@ -270,11 +270,12 @@ class ERA5T():
 
     def _createDataColIndex(self):
         '''
-        Create indexes for the data collection
+        If necessary, creates indexes for the data collection.
         '''
         col_dat = self._createMongoConn(cfg=self.cfg)['col_dat']
         idx = col_dat.index_information()
-        should_idx = ['_id_', 'year_-1', 'id_grid_1_year_-1']
+        should_idx = ['_id_', 'year_-1', 'id_grid_1_year_-1',
+                      'year_-1_id_grid_1']
         passed = all(item in list(idx.keys())for item in should_idx)
         if not passed:
             index1 = pymongo.IndexModel([("year", pymongo.DESCENDING)],
@@ -283,7 +284,11 @@ class ERA5T():
                 [("id_grid", pymongo.ASCENDING),
                  ("year", pymongo.DESCENDING)],
                 name="id_grid_1_year_-1")
-            col_dat.create_indexes([index1, index2])
+            index3 = pymongo.IndexModel(
+                [("year", pymongo.DESCENDING),
+                 ("id_grid", pymongo.ASCENDING)],
+                name="year_-1_id_grid_1")
+            col_dat.create_indexes([index1, index2, index3])
             logging.info('Indexes added for the data collection')
         else:
             logging.info('Data indexes already exist.')
@@ -363,9 +368,18 @@ class ERA5T():
         '''
         con = self._createMongoConn(cfg=self.cfg)
         col_grid = con['col_grid']
-        col_grid.create_index([("loc", pymongo.GEOSPHERE),
-                               ("id_grid", pymongo.ASCENDING)])
-        logging.info('Indexes added for the grid collection')
+        idx = col_grid.index_information()
+        should_idx = ['locgeo', 'id_grid_1']
+        passed = all(item in list(idx.keys())for item in should_idx)
+        if not passed:
+            index1 = pymongo.IndexModel([("loc", pymongo.GEOSPHERE)],
+                                        name="locgeo")
+            index2 = pymongo.IndexModel([("id_grid", pymongo.ASCENDING)],
+                                        name="id_grid_1")
+            col_grid.create_indexes([index1, index2])
+            logging.info('Indexes added for the grid collection')
+        else:
+            logging.info('Grid indexes already exist.')
 
     def getLastDate(self) -> datetime:
         '''
@@ -534,8 +548,10 @@ class ERA5T():
         if (method == 'insert'):
             ids = [x['id_grid'] for x in res]
             # First remove data
-            col_dat.delete_many(filter={'year': int(self.year),
-                                        'id_grid': {'$in': ids}})
+            col_dat.delete_many(filter={
+                'year': int(self.year),
+                'id_grid': {'$in': ids}}
+            )
             # Then insert data
             col_dat.insert_many(res)
         else:
@@ -548,11 +564,11 @@ class ERA5T():
                       mask_query: Union[dict, None],
                       retrn: str,
                       col_grid: pymongo.collection.Collection)\
-                      -> Union[dict, pymongo.cursor.Cursor]:
+            -> Union[dict, pymongo.cursor.Cursor]:
         '''
         Explore an xarray chunk and returns either the number
         of grid cells or the grid ids.
-        
+
         Parameters
         ----------
         ilon_chunk : int
@@ -630,10 +646,11 @@ class ERA5T():
         years : List[int]
             list of years to (re-)process
         '''
-        
+
+        # If necessary, creates indexes for the data collection.
         self._createDataColIndex()
-        col_grid = self._createMongoConn(cfg=self.cfg)['col_grid']
         # Does the grid collection exists?
+        col_grid = self._createMongoConn(cfg=self.cfg)['col_grid']
         ndoc = col_grid.count_documents(filter={})
         if ndoc == 0:
             logging.info('Creation of the grid collection...')
@@ -648,7 +665,7 @@ class ERA5T():
 
         for year in years:
             self.year = int(year)
-            logging.info(' --- PROCESSING YEAR %s ---' % year)
+            logging.info(f' --- PROCESSING YEAR {year} ---')
 
             if self.download is True:
                 logging.info('Proceeding with downloads...')
@@ -664,7 +681,7 @@ class ERA5T():
                 try:
                     ncfiles = self.listNetCDFfiles(year)
                 except FileNotFoundError:
-                    print(f'No ERA5T files downloaded for {year} yet.')
+                    logging.info(f'No ERA5T files downloaded for {year} yet.')
                     months_to_download = months
                 else:
                     fmonths_present = sorted(list(
@@ -674,26 +691,37 @@ class ERA5T():
                     # Months needed but not present :
                     missing_months = list(set(fmonths_needed) -
                                           (set(fmonths_present)))
-                    months_to_download = list(
-                        set(missing_months + months))  # distinct months
+                    months_to_download = missing_months
+                    # months_to_download = list(
+                    #     set(missing_months + months))  # distinct months
+                # fmonths_present
+                # print(ncfiles)
+                # print(fmonths_present)
+                # print('...')
+                # print(missing_months)
+                # import sys
+                # sys.exit(0)
 
-                logging.info(
-                    f'Downloading files for YEAR {year}....\n' +
-                    f'Months: {months_to_download}')
-                # Parralel download of monthly data:
-                install_mp_handler()
-                p = ThreadPool(processes=self.nthreads)
-                p.map(lambda m: self.getFiles(year=year, month=m),
-                      months_to_download)
-                p.close()
-                p.join()
-                logging.info(f'Downloading files for YEAR {year} Done.')
+                if len(months_to_download) > 0:
+                    logging.info(
+                        f'Downloading files for YEAR {year}....\n' +
+                        f'Months: {months_to_download}')
+                    # Parralel download of monthly data:
+                    install_mp_handler()
+                    p = ThreadPool(processes=12)  # one thread per month
+                    p.map(lambda m: self.getFiles(year=year, month=m),
+                          months_to_download)
+                    p.close()
+                    p.join()
+                    logging.info(f'Downloading files for YEAR {year} Done.')
+                else:
+                    logging.info(f'All files already present for year {year}.')
             else:
                 logging.info('Proceeding without downloads')
 
             # List all the current year's nc files after download
             nc_local = self.listNetCDFfiles(year=year)
-            
+
             # Open them all in one ds object
             # arrays will be loaded in chronological order
             try:
